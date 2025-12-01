@@ -7,11 +7,11 @@ from typing import Sequence
 
 import numpy as np
 
-from op_tester.backends import BackendDriver, backend_manager
-from op_tester.core import BackendTarget, Tolerance
-from op_tester.core.runner import TestRunner
-from op_tester.plans.loader import build_execution_plan
-from op_tester.plans.types import RunOptions
+from optest.backends import BackendDriver, backend_manager
+from optest.core import BackendTarget, Tolerance
+from optest.core.runner import TestRunner
+from optest.plans.loader import build_execution_plan
+from optest.plans.types import RunOptions
 
 
 def _build_simple_case() -> RunOptions:

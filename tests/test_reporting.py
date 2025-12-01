@@ -4,12 +4,12 @@ import json
 from pathlib import Path
 from unittest import mock
 
-from op_tester.core import BackendTarget, TestCase, Tolerance
-from op_tester.core.comparator import ComparisonResult, TensorComparisonResult
-from op_tester.core.results import CaseResult
-from op_tester.plans.types import ExecutionPlan, RunSettings
-from op_tester.registry import registry
-from op_tester.reporting.json_reporter import JsonReporter
+from optest.core import BackendTarget, TestCase, Tolerance
+from optest.core.comparator import ComparisonResult, TensorComparisonResult
+from optest.core.results import CaseResult
+from optest.plans.types import ExecutionPlan, RunSettings
+from optest.registry import registry
+from optest.reporting.json_reporter import JsonReporter
 
 
 def test_json_reporter_writes_file(tmp_path_factory=None) -> None:

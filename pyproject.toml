@@ -3,14 +3,14 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "op-tester"
+name = "optest"
 version = "0.1.0"
 description = "CLI framework for validating AI operators across GPU/NPU targets"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "Apache-2.0"}
 authors = [
-  {name = "op-tester", email = "devnull@example.com"},
+  {name = "optest", email = "devnull@example.com"},
 ]
 keywords = ["ai", "testing", "operators", "cuda", "npu"]
 dependencies = [
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Source" = "https://example.com/op-tester"
+"Source" = "https://example.com/optest"
 
 [project.scripts]
-"op-tester" = "op_tester.cli.main:main"
+"optest" = "optest.cli.main:main"

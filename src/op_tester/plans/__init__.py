@@ -1,1 +1,0 @@
-"""op-tester ${pkg} package."""

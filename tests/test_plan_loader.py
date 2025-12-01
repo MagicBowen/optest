@@ -1,6 +1,6 @@
-from op_tester.core import Tolerance
-from op_tester.plans.loader import build_execution_plan
-from op_tester.plans.types import RunOptions
+from optest.core import Tolerance
+from optest.plans.loader import build_execution_plan
+from optest.plans.types import RunOptions
 
 
 def test_build_execution_plan_with_cli_overrides() -> None:
