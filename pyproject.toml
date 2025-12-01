@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "op-tester"
+version = "0.1.0"
+description = "CLI framework for validating AI operators across GPU/NPU targets"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+authors = [
+  {name = "op-tester", email = "devnull@example.com"},
+]
+keywords = ["ai", "testing", "operators", "cuda", "npu"]
+dependencies = [
+  "click>=8.1",
+  "numpy>=1.24",
+  "PyYAML>=6.0",
+  "colorama>=0.4",
+  "jsonschema>=4.0",
+]
+
+[project.urls]
+"Source" = "https://example.com/op-tester"
+
+[project.scripts]
+"op-tester" = "op_tester.cli.main:main"
