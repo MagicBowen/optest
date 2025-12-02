@@ -3,5 +3,6 @@ env_setup.sh
 tmp/
 .venv/
 __pycache__/
+.pytest_cache/
 *.pyc
-op_tester.egg-info/
+optest.egg-info
