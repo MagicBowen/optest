@@ -51,7 +51,7 @@ graph LR
 
 ### 2.4 Reporting Pipeline
 - `ReportManager` fans out lifecycle events (`on_start`, `on_case_result`, `on_complete`) to reporters.
-- Terminal reporter prints progress and mismatch diagnostics.
+- Terminal reporter prints progress plus detailed failure diagnostics (backend + chip, seed, shapes, tolerance, and per-tensor mismatch counts with worst-index/actual/expected values) and emits a condensed failure summary after execution.
 - JSON reporter validates against `reporting/schema.py` before writing, ensuring compatibility when integrating with dashboards.
 
 ## 3. Extending optest with Custom GPU/NPU Backends
@@ -114,6 +114,7 @@ cases:
 ```
 - optest writes generator-produced tensors to the configured `input/*.bin` files, invokes your command, and expects the output file(s) to appear under `output/`.
 - The backend can also run a lightweight Python script (see `tests/artifacts/ascend_backend/produce.py`) for CPU-debug flows.
+- Use `tmp/add_custom/optest_plan_failure.yaml` together with `tmp/add_custom/simulate_failure.sh` to intentionally trigger a non-zero exit (42) and verify that optest surfaces command stderr/exit codes when operator launches fail.
 
 ## 4. Packaging & Distribution
 

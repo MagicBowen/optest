@@ -18,6 +18,10 @@ class TensorComparisonResult:
     max_rel_error: float
     mismatched: int
     total: int
+    max_error_index: tuple[int, ...] | None = None
+    actual_value: float | None = None
+    expected_value: float | None = None
+    detail: str | None = None
 
 
 @dataclass
@@ -54,11 +58,12 @@ def compare_outputs(
                     max_rel_error=float("inf"),
                     mismatched=act.size,
                     total=act.size,
+                    detail=f"shape mismatch: actual {act.shape}, expected {exp.shape}",
                 )
             )
             overall_passed = False
             continue
-        abs_diff, rel_diff = _diff_metrics(act, exp)
+        abs_diff, rel_diff, index, actual_value, expected_value = _diff_metrics(act, exp)
         close = np.isclose(act, exp, atol=tolerance.absolute, rtol=tolerance.relative)
         mismatched = int(close.size - int(np.count_nonzero(close)))
         metrics.append(
@@ -68,6 +73,9 @@ def compare_outputs(
                 max_rel_error=rel_diff,
                 mismatched=mismatched,
                 total=close.size,
+                max_error_index=index,
+                actual_value=actual_value,
+                expected_value=expected_value,
             )
         )
         if mismatched:
@@ -76,12 +84,24 @@ def compare_outputs(
     return ComparisonResult(passed=overall_passed, tensors=metrics)
 
 
-def _diff_metrics(actual: np.ndarray, expected: np.ndarray) -> tuple[float, float]:
+def _diff_metrics(
+    actual: np.ndarray, expected: np.ndarray
+) -> tuple[float, float, tuple[int, ...] | None, float | None, float | None]:
     act = actual.astype(np.float64)
     exp = expected.astype(np.float64)
     diff = np.abs(act - exp)
-    max_abs = float(diff.max(initial=0.0))
+    if diff.size == 0:
+        return 0.0, 0.0, None, None, None
+    flat_index = int(np.argmax(diff))
+    max_abs = float(diff.flat[flat_index])
+    max_abs_index = tuple(np.unravel_index(flat_index, act.shape))
     denom = np.maximum(np.abs(exp), 1e-12)
     rel = np.divide(diff, denom)
     max_rel = float(rel.max(initial=0.0))
-    return max_abs, max_rel
+    return (
+        max_abs,
+        max_rel,
+        max_abs_index,
+        float(act.flat[flat_index]),
+        float(exp.flat[flat_index]),
+    )

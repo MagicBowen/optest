@@ -66,6 +66,11 @@ Run it:
 optest run --plan plan.yaml --report json
 ```
 
+Show CLI help/flags:
+```bash
+optest -h   # or: optest --help
+```
+
 ### Key options
 - `--op/-o NAME`: specify operators (repeatable). `--plan` can define multiple cases.
 - `--dtype a,b,...`: comma-separated dtype tuple per operator input.
@@ -104,6 +109,14 @@ cases:
 `workdir` points at your operator project (containing `run.sh`, `input/`, `output/`). optest writes NumPy-generated tensors into `input/*.bin`, executes the `command`, then reads the configured output files before comparing against reference results. Specify `--backend npu --chip ascend910b` (or whichever SOC you target) to activate this backend.
 
 Use `optest run --help` for the full option list.
+
+## Diagnosing Failures
+- The terminal reporter now prints richer failure blocks (backend + chip, seed, shapes, tolerance, and per-tensor mismatch stats including the worst index plus actual/expected values) and a consolidated failure summary at the end of the run.
+- Validate error handling for real Ascend command launches with the provided plan under `tmp/add_custom/optest_plan_failure.yaml` (assumes execution from the repo root; adjust `backend_config.ascend.workdir` otherwise):
+  ```bash
+  PYTHONPATH=src optest run --plan tmp/add_custom/optest_plan_failure.yaml --no-color
+  ```
+  The plan calls `simulate_failure.sh`, which exits with code 42 so you can confirm optest surfaces the failing command and stderr when an operator invocation breaks.
 
 ## Extending Operators & Backends
 - Register operator descriptors or swap defaults via plugin modules imported before CLI execution (`OPTEST_PLUGINS=my_pkg.plugins`).

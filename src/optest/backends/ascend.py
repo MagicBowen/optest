@@ -35,6 +35,7 @@ class AscendBackendDriver(BackendDriver):
     """Backend that runs Ascend operator binaries via user scripts."""
 
     name = "ascend-command"
+    kind = "npu"
 
     def __init__(self, *, chips: Sequence[str]) -> None:
         self.chips = tuple(chips)

@@ -17,6 +17,9 @@ from optest.plans.types import ExecutionPlan, RunOptions
 from optest.reporting import JsonReporter, ReportManager, TerminalReporter
 
 
+CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
+
+
 class CliState:
     """Holds global CLI state (future expansion)."""
 
@@ -31,7 +34,7 @@ def _print_version(_: click.Context, __: click.Parameter, value: bool) -> None:
     raise click.exceptions.Exit()
 
 
-@click.group()
+@click.group(context_settings=CONTEXT_SETTINGS)
 @click.option("--verbose", is_flag=True, help="Enable verbose logging output.")
 @click.option(
     "--version",

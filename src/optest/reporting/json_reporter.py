@@ -86,6 +86,8 @@ def _case_to_dict(result: CaseResult) -> Dict[str, Any]:
         },
         "attributes": _jsonify(case.attributes),
     }
+    if result.seed is not None:
+        record["seed"] = result.seed
     if result.error:
         record["error"] = result.error
     if result.comparison:
@@ -97,6 +99,12 @@ def _case_to_dict(result: CaseResult) -> Dict[str, Any]:
                 "max_rel_error": tensor_result.max_rel_error,
                 "mismatched": tensor_result.mismatched,
                 "total": tensor_result.total,
+                "max_error_index": list(tensor_result.max_error_index)
+                if tensor_result.max_error_index is not None
+                else None,
+                "actual_value": tensor_result.actual_value,
+                "expected_value": tensor_result.expected_value,
+                "detail": tensor_result.detail,
             }
             for index, tensor_result in enumerate(result.comparison.tensors)
         ]

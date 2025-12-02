@@ -17,6 +17,7 @@ class CaseResult:
     duration_s: float
     comparison: Optional[ComparisonResult] = None
     error: Optional[str] = None
+    seed: Optional[int] = None
 
     @property
     def passed(self) -> bool:

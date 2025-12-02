@@ -34,7 +34,7 @@ class TestRunner:
         for index, case in enumerate(cases, start=1):
             case_seed = int(master_rng.integers(0, 2**32 - 1))
             case_rng = np.random.default_rng(case_seed)
-            result = self._execute_case(case, case_rng)
+            result = self._execute_case(case, case_rng, case_seed)
             results.append(result)
             if on_result:
                 on_result(result, index, total)
@@ -42,7 +42,9 @@ class TestRunner:
                 break
         return results
 
-    def _execute_case(self, case: TestCase, rng: np.random.Generator) -> CaseResult:
+    def _execute_case(
+        self, case: TestCase, rng: np.random.Generator, seed: int
+    ) -> CaseResult:
         start = time.perf_counter()
         try:
             generator = self._resolve_generator(case)
@@ -56,7 +58,13 @@ class TestRunner:
             comparison = compare_outputs(case, outputs, expected)
             status = "passed" if comparison.passed else "failed"
             duration = time.perf_counter() - start
-            return CaseResult(case=case, status=status, duration_s=duration, comparison=comparison)
+            return CaseResult(
+                case=case,
+                status=status,
+                duration_s=duration,
+                comparison=comparison,
+                seed=seed,
+            )
         except Exception as exc:  # pragma: no cover - aggregated error path
             duration = time.perf_counter() - start
             return CaseResult(
@@ -65,6 +73,7 @@ class TestRunner:
                 duration_s=duration,
                 comparison=None,
                 error=str(exc),
+                seed=seed,
             )
 
     def _resolve_generator(self, case: TestCase) -> GeneratorProtocol:

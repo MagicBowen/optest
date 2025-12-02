@@ -113,7 +113,7 @@ cases:
 ## 9. Reporting & Diagnostics
 - Terminal reporter:
   - Shows streaming progress `[3/10] gemm float32 backend=gpu chip=a100 ... PASS (35ms)`.
-  - On failure, prints formatted block with tolerance info, first few mismatched elements, and failure reason.
+  - On failure, prints structured blocks with backend/chip, seed, shapes, tolerance, worst mismatch index plus actual/expected values, and aggregates a final failure summary.
   - Honors `--no-color` to disable ANSI codes.
 - JSON reporter:
   - Schema v1 with fields: `schema_version`, `generated_at`, `summary` (pass/fail counts, duration), and `cases` array (each includes `id`, `operator`, `backend`, `chip`, `dtypes`, `shapes`, `status`, `duration_ms`, `tolerance`, `metrics`, `failure` details, `inputs_metadata`).

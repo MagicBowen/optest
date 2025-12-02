@@ -94,7 +94,7 @@ def test_runner_with_ascend_command_backend() -> None:
             "backend_config": {
                 "ascend": {
                     "workdir": str(workdir),
-                    "command": ["python3", str(script)],
+                    "command": ["python3", script.name],
                     "inputs": [
                         {"tensor": "input0", "path": "input/input_x.bin", "dtype": "float32"}
                     ],
@@ -110,3 +110,36 @@ def test_runner_with_ascend_command_backend() -> None:
     runner = TestRunner(seed=2)
     result = runner.run(plan.cases)[0]
     assert result.status == "passed", result.error
+
+
+def test_runner_reports_ascend_command_failure(tmp_path: Path) -> None:
+    workdir = tmp_path / "add_custom"
+    shutil.copytree(Path("tmp/add_custom"), workdir)
+    run_options = RunOptions(
+        ops=("elementwise_add",),
+        dtype_override=("float16", "float16"),
+        shape_overrides={"input0": (8, 2048), "input1": (8, 2048), "output0": (8, 2048)},
+        backend="npu",
+        chip="ascend910b",
+        attribute_overrides={
+            "backend_config": {
+                "ascend": {
+                    "workdir": str(workdir),
+                    "command": ["bash", "simulate_failure.sh"],
+                    "inputs": [
+                        {"tensor": "input0", "path": "input/input_x.bin", "dtype": "float16"},
+                        {"tensor": "input1", "path": "input/input_y.bin", "dtype": "float16"},
+                    ],
+                    "outputs": [
+                        {"tensor": "output0", "path": "output/output_z.bin", "dtype": "float16"}
+                    ],
+                }
+            }
+        },
+    )
+    plan = build_execution_plan(run_options)
+    runner = TestRunner(seed=3)
+    result = runner.run(plan.cases)[0]
+    assert result.status == "error"
+    assert result.error is not None
+    assert "simulate_failure.sh intentionally stops" in result.error
