@@ -266,5 +266,5 @@ def _create_report_manager(plan: ExecutionPlan) -> ReportManager:
 
 
 def _default_report_path() -> str:
-    timestamp = dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
     return str(Path.cwd() / f"optest_report_{timestamp}.json")

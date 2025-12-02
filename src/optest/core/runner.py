@@ -50,9 +50,13 @@ class TestRunner:
             generator = self._resolve_generator(case)
             inputs, maybe_reference = generator.generate(case, rng)
             expected = maybe_reference
+            golden = _maybe_load_golden(case)
+            if golden is not None:
+                expected = golden
             if expected is None:
                 reference_fn = resolve_reference(case.descriptor, case.reference_override)
                 expected = reference_fn(inputs, case.attributes)
+            _maybe_dump_golden(case, expected)
             driver = backend_manager.get_driver(case.backend.kind, case.backend.chip)
             outputs = driver.run(case, inputs)
             comparison = compare_outputs(case, outputs, expected)
@@ -82,3 +86,15 @@ class TestRunner:
         if case.descriptor.default_generator:
             return resolve_generator(case.descriptor.default_generator)
         return RandomTensorGenerator()
+
+
+def _maybe_load_golden(case: TestCase) -> Optional[Sequence[np.ndarray]]:
+    from optest.backends.ascend import load_golden_tensors
+
+    return load_golden_tensors(case)
+
+
+def _maybe_dump_golden(case: TestCase, expected: Sequence[np.ndarray]) -> None:
+    from optest.backends.ascend import dump_golden_tensors
+
+    dump_golden_tensors(case, expected)

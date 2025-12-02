@@ -16,9 +16,59 @@ def elementwise_add_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
     return (np.add(a, b),)
 
 
+def elementwise_sub_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.subtract(a, b),)
+
+
 def elementwise_mul_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
     a, b = inputs
     return (np.multiply(a, b),)
+
+
+def elementwise_div_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.divide(a, b),)
+
+
+def equal_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.equal(a, b),)
+
+
+def greater_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.greater(a, b),)
+
+
+def less_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.less(a, b),)
+
+
+def less_equal_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.less_equal(a, b),)
+
+
+def greater_equal_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.greater_equal(a, b),)
+
+
+def vector_dot_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.sum(a * b, axis=-1),)
+
+
+def vector_norm_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    return (np.linalg.norm(x),)
+
+
+def vector_sum_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    return (np.sum(x),)
 
 
 def gemm_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -33,6 +83,11 @@ def gemm_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
     return (result,)
 
 
+def matmul_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    a, b = inputs
+    return (np.matmul(a, b),)
+
+
 def relu_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
     (x,) = inputs
     return (np.maximum(x, 0),)
@@ -41,6 +96,54 @@ def relu_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
 def sigmoid_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
     (x,) = inputs
     return (1 / (1 + np.exp(-x)),)
+
+
+def tanh_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    return (np.tanh(x),)
+
+
+def leaky_relu_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    alpha = float(attrs.get("alpha", 0.01))
+    return (np.where(x > 0, x, alpha * x),)
+
+
+def sinh_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    return (np.sinh(x),)
+
+
+def softmax_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    axis_value = attrs.get("axis", -1)
+    axis = int(axis_value) if axis_value is not None else -1
+    shifted = x - np.max(x, axis=axis, keepdims=True)
+    exp = np.exp(shifted)
+    return (exp / np.sum(exp, axis=axis, keepdims=True),)
+
+
+def reduce_sum_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    axis = attrs.get("axis", None)
+    keepdims = bool(attrs.get("keepdims", False))
+    return (np.sum(x, axis=axis, keepdims=keepdims),)
+
+
+def reduce_mean_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    axis = attrs.get("axis", None)
+    keepdims = bool(attrs.get("keepdims", False))
+    return (np.mean(x, axis=axis, keepdims=keepdims),)
+
+
+def broadcast_to_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
+    (x,) = inputs
+    shape = attrs.get("shape")
+    if shape is None:
+        raise ValueError("broadcast_to requires 'shape' attribute")
+    target_shape = tuple(int(dim) for dim in shape)
+    return (np.broadcast_to(x, target_shape),)
 
 
 def maxpool2d_reference(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:

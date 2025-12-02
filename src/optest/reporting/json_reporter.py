@@ -16,6 +16,10 @@ from .base import Reporter
 from .schema import JSON_SCHEMA_V1, SCHEMA_VERSION
 
 
+def _utcnow() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
 class JsonReporter(Reporter):
     """Writes results to a JSON file validated against the schema."""
 
@@ -28,7 +32,7 @@ class JsonReporter(Reporter):
     def on_start(self, plan: ExecutionPlan) -> None:
         self._plan = plan
         self._records.clear()
-        self._start_time = dt.datetime.utcnow().timestamp()
+        self._start_time = _utcnow().timestamp()
 
     def on_case_result(self, result: CaseResult, index: int, total: int) -> None:
         self._records.append(_case_to_dict(result))
@@ -36,10 +40,11 @@ class JsonReporter(Reporter):
     def on_complete(self, results: Sequence[CaseResult]) -> None:
         if self._plan is None:
             return
-        total_duration = dt.datetime.utcnow().timestamp() - self._start_time
+        now = _utcnow()
+        total_duration = now.timestamp() - self._start_time
         payload = {
             "schema_version": SCHEMA_VERSION,
-            "generated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "generated_at": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
             "summary": _build_summary(self._plan, results, total_duration),
             "cases": self._records,
         }

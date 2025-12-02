@@ -1,0 +1,25 @@
+backend: npu
+chip: ascend
+cases:
+  - op: elementwise_add
+    dtypes: [float32, float32]
+    shapes:
+      input0: [2, 3]
+      input1: [2, 3]
+      output0: [2, 3]
+    attributes:
+      backend_config:
+        ascend:
+          workdir: ./operator
+          command: ["./build/add_custom", "--dtype", "float32"]
+  - op: elementwise_add
+    dtypes: [int32, int32]
+    shapes:
+      input0: [4, 4]
+      input1: [4, 4]
+      output0: [4, 4]
+    attributes:
+      backend_config:
+        ascend:
+          workdir: ./operator
+          command: ["./build/add_custom", "--dtype", "int32"]

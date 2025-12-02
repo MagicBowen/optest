@@ -71,14 +71,12 @@ def resolve_generator(path: str) -> GeneratorProtocol:
     """Import and instantiate a generator from a dotted path string."""
 
     obj = import_string(path)
-    if hasattr(obj, "generate"):
-        return obj  # type: ignore[return-value]
     if isinstance(obj, type):
         instance = obj()
-    elif callable(obj):
+    elif callable(obj) and not hasattr(obj, "generate"):
         instance = obj()
-    else:  # pragma: no cover - defensive
-        raise TypeError(f"Generator '{path}' is not callable")
+    else:
+        instance = obj
     if not hasattr(instance, "generate"):
         raise TypeError(f"Generator '{path}' does not implement 'generate'")
     return instance  # type: ignore[return-value]

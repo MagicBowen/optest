@@ -63,6 +63,7 @@ def test_json_reporter_writes_file(tmp_path_factory=None) -> None:
         payload = json.loads(written)
         assert payload["summary"]["total"] == 1
         assert payload["cases"][0]["operator"] == "relu"
+        assert payload["generated_at"].endswith("Z")
 
 
 def test_terminal_reporter_renders_failure_details(capsys) -> None:

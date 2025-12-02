@@ -1,0 +1,23 @@
+backend: npu
+chip: ascend
+cases:
+  - op: custom_square
+    dtypes: [float32]
+    shapes:
+      input0: [2, 2]
+      output0: [2, 2]
+    attributes:
+      backend_config:
+        ascend:
+          workdir: ./operator
+          command: ["./build/custom_square", "--dtype", "float32"]
+  - op: custom_square
+    dtypes: [int32]
+    shapes:
+      input0: [3, 3]
+      output0: [3, 3]
+    attributes:
+      backend_config:
+        ascend:
+          workdir: ./operator
+          command: ["./build/custom_square", "--dtype", "int32"]

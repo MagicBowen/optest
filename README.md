@@ -7,7 +7,7 @@ A Python-based CLI framework for validating AI operators (CUDA GPU / NPU) with a
 - Backend abstraction for GPU/NPU drivers plus a reference-backed stub for self-tests.
 - Extensible reporters (TTY summary, strict-schema JSON) suitable for automation.
 
-See `docs/optest_design_plan.md` for the roadmap and `docs/optest_architecture.md` for architectural details, extension guidance, and packaging tips.
+See `docs/optest_todos.md` for the current roadmap and `docs/optest_architecture.md` for architectural details, extension guidance, and packaging tips.
 
 ## Installation
 
@@ -71,6 +71,32 @@ Show CLI help/flags:
 optest -h   # or: optest --help
 ```
 
+### Multiple operators and variants in one plan
+Bundle multiple ops (and per-op variants) into a single YAML:
+```yaml
+backend: npu
+chip: ascend910b
+cases:
+  - op: elementwise_add
+    dtypes:
+      - [float16, float16]
+      - [float32, float32]
+    shapes:
+      - input0: [8, 2048]
+        input1: [8, 2048]
+      - input0: [16, 1024]
+        input1: [16, 1024]
+    attributes:
+      backend_config:
+        ascend:
+          workdir: /path/to/add_custom
+          command: ["bash", "run_optest.sh"]
+  - op: relu
+    shapes:
+      input0: [4, 4]
+```
+optest expands the dtype/shape lists into individual cases automatically.
+
 ### Key options
 - `--op/-o NAME`: specify operators (repeatable). `--plan` can define multiple cases.
 - `--dtype a,b,...`: comma-separated dtype tuple per operator input.
@@ -106,7 +132,7 @@ cases:
             dtype: float16
 ```
 
-`workdir` points at your operator project (containing `run.sh`, `input/`, `output/`). optest writes NumPy-generated tensors into `input/*.bin`, executes the `command`, then reads the configured output files before comparing against reference results. Specify `--backend npu --chip ascend910b` (or whichever SOC you target) to activate this backend.
+`workdir` points at your operator project (containing `run.sh`, `input/`, `output/`). optest writes NumPy-generated tensors into `input/*.bin`, executes the `command`, then reads the configured output files before comparing against reference results. Specify `--backend npu --chip ascend910b` (or whichever SOC you target) to activate this backend. If you omit `inputs`/`outputs`, optest defaults to `input/{tensor}.bin` and `output/{tensor}.bin` (also mirroring to legacy `input_x.bin`/`output_z.bin`) and can dump/load golden outputs via `golden`. A single plan entry can fan out across multiple shape/dtype variants by listing them under `shapes`/`dtypes`.
 
 Use `optest run --help` for the full option list.
 
@@ -133,5 +159,8 @@ Use `optest run --help` for the full option list.
 - Enable JSON via `--report json --report-path ./reports/latest.json`.
 
 ## Additional Documentation
-- `docs/optest_design_plan.md` – project goals, phased plan, and risks.
+- `docs/optest_todos.md` – active task list and priorities.
 - `docs/optest_architecture.md` – mermaid architecture diagram, core components, extension instructions, packaging guidance.
+- `docs/ascend_samples_with_optest.md` – how to replace per-operator Ascend sample test scripts with optest plans/backends.
+- `examples/ascend_operator/` – minimal Ascend-style operator plus optest plan with multiple dtype/shape cases.
+- `examples/custom_op_with_plugins/` – demo for custom generator/reference on a non-builtin operator.

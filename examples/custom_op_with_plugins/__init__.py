@@ -1,0 +1,1 @@
+# Plugin example package marker.

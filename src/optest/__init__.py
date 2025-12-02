@@ -1,6 +1,9 @@
 """optest package initialization."""
 from __future__ import annotations
 
+import importlib
+import os
+
 from .backends import AscendBackendDriver, backend_manager, register_stub_backends
 from .registry import load_builtins
 
@@ -21,6 +24,7 @@ def bootstrap() -> None:
     if _BOOTSTRAPPED:
         return
     load_builtins()
+    _load_plugins()
     register_stub_backends()
     backend_manager.register(
         AscendBackendDriver(
@@ -35,3 +39,17 @@ def bootstrap() -> None:
         )
     )
     _BOOTSTRAPPED = True
+
+
+def _load_plugins() -> None:
+    plugin_env = os.environ.get("OPTEST_PLUGINS")
+    if not plugin_env:
+        return
+    for item in plugin_env.split(","):
+        module_name = item.strip()
+        if not module_name:
+            continue
+        module = importlib.import_module(module_name)
+        register = getattr(module, "register", None)
+        if callable(register):
+            register()

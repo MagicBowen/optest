@@ -69,7 +69,7 @@ def _resolve_case_configs(options: RunOptions, raw: Mapping[str, Any]) -> List[C
         for entry in cases_raw:
             if not isinstance(entry, Mapping):
                 raise ValueError("Each case entry must be a mapping")
-            configs.append(_parse_case_entry(entry))
+            configs.extend(_parse_case_entry(entry))
     if options.ops:
         desired = list(options.ops)
         filtered = [cfg for cfg in configs if cfg.op in desired]
@@ -85,13 +85,13 @@ def _resolve_case_configs(options: RunOptions, raw: Mapping[str, Any]) -> List[C
     return configs
 
 
-def _parse_case_entry(entry: Mapping[str, Any]) -> CaseConfig:
+def _parse_case_entry(entry: Mapping[str, Any]) -> List[CaseConfig]:
     op = entry.get("op")
     if not isinstance(op, str):
         raise ValueError("Each case entry must specify an 'op' string")
     dtype_field = entry.get("dtypes") or entry.get("dtype")
-    dtypes = _normalize_dtype_spec(dtype_field)
-    shapes = _normalize_shapes(entry.get("shapes"))
+    dtype_variants = _normalize_dtype_variants(dtype_field)
+    shape_variants = _normalize_shape_variants(entry.get("shapes"))
     attributes = dict(entry.get("attributes", {}))
     for key, value in entry.items():
         if key in {"op", "dtypes", "dtype", "shapes", "attributes", "generator", "reference", "tolerance"}:
@@ -101,15 +101,21 @@ def _parse_case_entry(entry: Mapping[str, Any]) -> CaseConfig:
     tolerance = Tolerance.from_mapping(entry.get("tolerance")) if entry.get("tolerance") else None
     generator = entry.get("generator")
     reference = entry.get("reference")
-    return CaseConfig(
-        op=op,
-        dtypes=dtypes,
-        shapes=shapes,
-        attributes=attributes,
-        generator=generator,
-        reference=reference,
-        tolerance=tolerance,
-    )
+    configs: List[CaseConfig] = []
+    for dtype in dtype_variants:
+        for shapes in shape_variants:
+            configs.append(
+                CaseConfig(
+                    op=op,
+                    dtypes=dtype,
+                    shapes=shapes,
+                    attributes=attributes,
+                    generator=generator,
+                    reference=reference,
+                    tolerance=tolerance,
+                )
+            )
+    return configs
 
 
 def _materialize_case(
@@ -165,6 +171,14 @@ def _normalize_dtype_spec(field: Any) -> Optional[tuple[str, ...]]:
     raise TypeError("Unsupported dtype specification format")
 
 
+def _normalize_dtype_variants(field: Any) -> List[Optional[tuple[str, ...]]]:
+    if field is None:
+        return [None]
+    if isinstance(field, (list, tuple)) and field and not isinstance(field[0], (str, bytes)):
+        return [_normalize_dtype_spec(item) for item in field]
+    return [_normalize_dtype_spec(field)]
+
+
 def _normalize_shapes(raw: Any) -> Dict[str, tuple[int, ...]]:
     if not raw:
         return {}
@@ -174,6 +188,14 @@ def _normalize_shapes(raw: Any) -> Dict[str, tuple[int, ...]]:
     for key, value in raw.items():
         result[str(key)] = _coerce_shape(value)
     return result
+
+
+def _normalize_shape_variants(raw: Any) -> List[Dict[str, tuple[int, ...]]]:
+    if raw is None:
+        return [{}]
+    if isinstance(raw, list):
+        return [_normalize_shapes(item) for item in raw]
+    return [_normalize_shapes(raw)]
 
 
 def _coerce_shape(value: Any) -> tuple[int, ...]:
