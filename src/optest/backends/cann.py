@@ -1,4 +1,4 @@
-"""Ascend NPU backend which shells out to user-provided run scripts."""
+"""CANN backend which shells out to user-provided run scripts."""
 from __future__ import annotations
 
 import os
@@ -28,7 +28,7 @@ class CommandSpec:
 
 
 @dataclass
-class AscendCommandConfig:
+class CannCommandConfig:
     workdir: Path
     command: List[str]
     build_commands: List[CommandSpec]
@@ -40,10 +40,10 @@ class AscendCommandConfig:
     env: Dict[str, str]
 
 
-class AscendBackendDriver(BackendDriver):
-    """Backend that runs Ascend operator binaries via user scripts."""
+class CannBackendDriver(BackendDriver):
+    """Backend that runs CANN operator binaries via user scripts."""
 
-    name = "ascend-command"
+    name = "cann-command"
     kind = "npu"
 
     def __init__(self, *, chips: Sequence[str]) -> None:
@@ -56,7 +56,7 @@ class AscendBackendDriver(BackendDriver):
         config = _extract_config(case)
         if config is None:
             raise RuntimeError(
-                "Ascend backend selected but no backend_config.ascend command was provided"
+                "cann backend selected but no backend_config.cann command was provided"
             )
         self._run_commands(config.build_commands, config)
         self._write_inputs(case, inputs, config)
@@ -67,13 +67,13 @@ class AscendBackendDriver(BackendDriver):
         return outputs
 
     def _write_inputs(
-        self, case: TestCase, inputs: Sequence[np.ndarray], config: AscendCommandConfig
+        self, case: TestCase, inputs: Sequence[np.ndarray], config: CannCommandConfig
     ) -> None:
         name_to_tensor = _map_inputs(case, inputs)
         for spec in config.inputs:
             tensor = name_to_tensor.get(spec.tensor)
             if tensor is None:
-                raise RuntimeError(f"Ascend backend input '{spec.tensor}' not found")
+                raise RuntimeError(f"cann backend input '{spec.tensor}' not found")
             dtype = np.dtype(spec.dtype or tensor.dtype)
             array = np.asarray(tensor, dtype=dtype)
             target_path = config.workdir / spec.path
@@ -86,11 +86,11 @@ class AscendBackendDriver(BackendDriver):
                     alias_path.parent.mkdir(parents=True, exist_ok=True)
                     array.tofile(alias_path)
 
-    def _run_commands(self, commands: Sequence[CommandSpec], config: AscendCommandConfig) -> None:
+    def _run_commands(self, commands: Sequence[CommandSpec], config: CannCommandConfig) -> None:
         for command in commands:
             self._run_single_command(config, command.argv)
 
-    def _run_single_command(self, config: AscendCommandConfig, argv: Sequence[str]) -> None:
+    def _run_single_command(self, config: CannCommandConfig, argv: Sequence[str]) -> None:
         env = os.environ.copy()
         env.update(config.env)
         process = subprocess.run(
@@ -102,11 +102,11 @@ class AscendBackendDriver(BackendDriver):
         )
         if process.returncode != 0:
             raise RuntimeError(
-                "Ascend command failed (exit code %s): %s"
+                "cann command failed (exit code %s): %s"
                 % (process.returncode, process.stderr.strip())
             )
 
-    def _read_outputs(self, case: TestCase, config: AscendCommandConfig) -> Sequence[np.ndarray]:
+    def _read_outputs(self, case: TestCase, config: CannCommandConfig) -> Sequence[np.ndarray]:
         outputs: list[np.ndarray] = []
         for spec in config.outputs:
             target_path = _resolve_output_path(config, spec)
@@ -122,33 +122,33 @@ def _map_inputs(case: TestCase, inputs: Sequence[np.ndarray]) -> Dict[str, np.nd
     names = _input_tensor_names(case, len(inputs))
     if len(names) != len(inputs):
         raise ValueError(
-            f"Ascend backend expected {len(names)} inputs based on shapes but received {len(inputs)} tensors"
+            f"cann backend expected {len(names)} inputs based on shapes but received {len(inputs)} tensors"
         )
     return {name: tensor for name, tensor in zip(names, inputs)}
 
 
-def _extract_config(case: TestCase) -> Optional[AscendCommandConfig]:
+def _extract_config(case: TestCase) -> Optional[CannCommandConfig]:
     backend_cfg = case.attributes.get("backend_config") or {}
-    ascend_cfg = backend_cfg.get("ascend")
-    if not ascend_cfg:
+    cann_cfg = backend_cfg.get("cann")
+    if not cann_cfg:
         return None
-    workdir = Path(ascend_cfg.get("workdir", ".")).expanduser()
-    command = _normalize_command(ascend_cfg.get("command"))
-    build_commands = _normalize_command_list(ascend_cfg.get("build"))
-    pre_run_commands = _normalize_command_list(ascend_cfg.get("pre_run"))
-    post_run_commands = _normalize_command_list(ascend_cfg.get("post_run"))
-    inputs = _normalize_inputs(ascend_cfg.get("inputs"), case)
-    outputs = _normalize_outputs(ascend_cfg.get("outputs"), case)
+    workdir = Path(cann_cfg.get("workdir", ".")).expanduser()
+    command = _normalize_command(cann_cfg.get("command"))
+    build_commands = _normalize_command_list(cann_cfg.get("build"))
+    pre_run_commands = _normalize_command_list(cann_cfg.get("pre_run"))
+    post_run_commands = _normalize_command_list(cann_cfg.get("post_run"))
+    inputs = _normalize_inputs(cann_cfg.get("inputs"), case)
+    outputs = _normalize_outputs(cann_cfg.get("outputs"), case)
     golden = [
         TensorFileSpec(
             tensor=spec.get("tensor", f"output{idx}"),
             path=Path(spec["path"]),
             dtype=spec.get("dtype"),
         )
-        for idx, spec in enumerate(_normalize_golden(ascend_cfg.get("golden")))
+        for idx, spec in enumerate(_normalize_golden(cann_cfg.get("golden")))
     ]
-    env = {str(k): str(v) for k, v in (ascend_cfg.get("env") or {}).items()}
-    return AscendCommandConfig(
+    env = {str(k): str(v) for k, v in (cann_cfg.get("env") or {}).items()}
+    return CannCommandConfig(
         workdir=workdir,
         command=command,
         build_commands=build_commands,
@@ -163,7 +163,7 @@ def _extract_config(case: TestCase) -> Optional[AscendCommandConfig]:
 
 def _normalize_command(value) -> List[str]:
     if value is None:
-        raise ValueError("Ascend backend requires 'command' as string, list, or mapping")
+        raise ValueError("cann backend requires 'command' as string, list, or mapping")
     if isinstance(value, (str, os.PathLike)):
         return shlex.split(str(value))
     if isinstance(value, list):
@@ -171,16 +171,16 @@ def _normalize_command(value) -> List[str]:
     if isinstance(value, dict):
         executable = value.get("binary") or value.get("executable")
         if not executable:
-            raise ValueError("Ascend backend 'command' mapping requires 'binary' or 'executable'")
+            raise ValueError("cann backend 'command' mapping requires 'binary' or 'executable'")
         args = value.get("args", [])
         if isinstance(args, (str, os.PathLike)):
             args_list = [str(args)]
         elif isinstance(args, list):
             args_list = [str(part) for part in args]
         else:
-            raise ValueError("Ascend backend 'args' must be a list or string")
+            raise ValueError("cann backend 'args' must be a list or string")
         return [str(executable)] + args_list
-    raise ValueError("Ascend backend requires 'command' as string, list, or mapping")
+    raise ValueError("cann backend requires 'command' as string, list, or mapping")
 
 
 def _normalize_command_list(raw) -> List[CommandSpec]:
@@ -190,7 +190,7 @@ def _normalize_command_list(raw) -> List[CommandSpec]:
     if isinstance(raw, (str, os.PathLike, list, dict)):
         raw = [raw]
     if not isinstance(raw, (list, tuple)):
-        raise ValueError("Ascend backend commands must be a list")
+        raise ValueError("cann backend commands must be a list")
     for entry in raw:
         argv = _normalize_command(entry)
         commands.append(CommandSpec(argv=argv))
@@ -239,12 +239,12 @@ def _normalize_golden(raw) -> List[dict]:
     if isinstance(raw, dict):
         raw = [{"tensor": name, "path": value} if not isinstance(value, dict) else {"tensor": name, **value} for name, value in raw.items()]
     if not isinstance(raw, list):
-        raise ValueError("Ascend backend 'golden' must be a list or mapping")
+        raise ValueError("cann backend 'golden' must be a list or mapping")
     return raw
 
 
 def load_golden_tensors(case: TestCase) -> Optional[Sequence[np.ndarray]]:
-    """Load golden tensors from backend_config.ascend.golden if provided."""
+    """Load golden tensors from backend_config.cann.golden if provided."""
 
     config = _extract_config(case)
     if config is None or not config.golden:
@@ -296,7 +296,7 @@ def _legacy_output_alias(spec: TensorFileSpec) -> Optional[Path]:
 
 
 def _resolve_output_path(
-    config: AscendCommandConfig, spec: TensorFileSpec, *, allow_missing: bool = False
+    config: CannCommandConfig, spec: TensorFileSpec, *, allow_missing: bool = False
 ) -> Optional[Path]:
     target_path = config.workdir / spec.path
     if target_path.exists():
@@ -308,7 +308,7 @@ def _resolve_output_path(
             return alias_path
     if allow_missing:
         return None
-    raise FileNotFoundError(f"Ascend backend expected output file missing: {target_path}")
+    raise FileNotFoundError(f"cann backend expected output file missing: {target_path}")
 
 
 def _default_inputs(case: TestCase) -> List[dict]:

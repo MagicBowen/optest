@@ -1,6 +1,6 @@
 # optest
 
-optest is a Python CLI for validating AI operators across GPU/NPU targets using a declarative YAML plan (new format only). Plans describe inputs/outputs, generators, assertions, backends/commands, and test cases; optest renders templates, generates data, runs your command, and checks results.
+optest is a Python CLI for validating AI operators across GPU/NPU targets using a declarative YAML plan. Plans describe inputs/outputs, generators, assertions, backends/commands, and test cases; optest renders templates, generates data, runs your command, and checks results with terminal or JSON output.
 
 ## Install
 ```bash
@@ -32,7 +32,7 @@ cases:
 Key points:
 - Defaults live at the plan level (`inputs`, `outputs`, `generator`, `assertion`) and can be overridden per case.
 - Command templating tokens include `{chip}`, `{backend}`, `{case}`, `{dtype}`/`{dtypes}`, `{shape}`/`{shapes}`, `{input0}`/`{inputs}`, `{output0}`/`{outputs}`, `{workdir}`.
-- Custom generators/assertions: set `name` to your function and `source` to the Python file; optest loads and calls it with the agreed prototypes.
+- Custom generators/assertions: set `name` to your function and `source` to the Python file; optest loads and calls it with the agreed prototypes. Built-in generators honor `constants` such as `value`, `scale`, and `shift`.
 
 ## CLI
 ```bash
@@ -48,13 +48,12 @@ optest run --plan ./plan.yaml --backend cuda --chip local \
 - Colors are on by default; use `--no-color` to disable.
 
 ## Examples
-- `examples/vector_add_v2/`: built-in generator/assertion.
-- `examples/ascend_operator/`: Ascend-style binary driven by the new plan (build C++ binary first).
+- `examples/vector_add/`: built-in generator/assertion (includes an opt-in failing case tagged `fail`).
+- `examples/ascend_operator/`: CANN-style binary driven by the plan (build the C++ binary first).
 - `examples/custom_op_with_plugins/`: custom generator + assertion via `source`+function names.
-- `vector_add_v2/` includes an intentionally failing case tagged `fail` (select with `--tags fail` if desired).
 
 Run from each example directory so relative paths resolve:
 ```bash
-cd examples/vector_add_v2
+cd examples/vector_add
 optest run --plan ./plan.yaml --backend cuda --chip local --tags smoke
 ```

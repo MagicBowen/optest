@@ -4,12 +4,14 @@ from __future__ import annotations
 import fnmatch
 import json
 import os
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Sequence
 
 import numpy as np
 from colorama import Fore, Style, init as colorama_init
+from jsonschema import Draft7Validator
 
 from optest.operators import builtin_operators
 
@@ -191,13 +193,20 @@ def _generate_array(
     name = config.name
     low = float(config.params.get("low", -1.0))
     high = float(config.params.get("high", 1.0))
+    constants = config.constants or {}
+    if "value" in constants:
+        return np.full(shape, constants["value"], dtype=dtype)
     if name.endswith("uniform"):
         return rng.uniform(low, high, size=shape).astype(dtype)
     if name.endswith("ones"):
         return np.ones(shape, dtype=dtype)
     if name.endswith("random"):
-        return rng.standard_normal(size=shape).astype(dtype)
-    raise ValueError(f"Unknown generator '{name}'")
+        data = rng.standard_normal(size=shape).astype(dtype)
+    else:
+        raise ValueError(f"Unknown generator '{name}'")
+    scale = float(constants.get("scale", 1.0))
+    shift = float(constants.get("shift", 0.0))
+    return (data * scale + shift).astype(dtype)
 
 
 def _ensure_output_dirs(paths: Sequence[Path]) -> None:
@@ -241,7 +250,10 @@ def _run_command(
         )
         if proc.returncode == 0:
             return
-        last_exc = RuntimeError(f"command '{' '.join(rendered)}' failed (code {proc.returncode}): {proc.stderr.strip()}")
+        last_exc = RuntimeError(
+            f"command '{' '.join(rendered)}' failed (code {proc.returncode}) "
+            f"in {workdir}: {proc.stderr.strip() or proc.stdout.strip()}"
+        )
     if last_exc:
         raise last_exc
 
@@ -269,10 +281,12 @@ def _build_tokens(resolved: ResolvedCase) -> Dict[str, str]:
 def _render_token(value: str, tokens: Mapping[str, str]) -> str:
     if "{" in value and "}" in value:
         try:
-            return value.format(**tokens)
+            rendered = value.format(**tokens)
         except KeyError as exc:
             raise RuntimeError(f"Unknown token {exc} in command part '{value}'") from exc
-    return value
+    else:
+        rendered = value
+    return shlex.quote(rendered) if rendered else rendered
 
 
 def _load_outputs(resolved: ResolvedCase, assertion: AssertionConfig) -> Sequence[np.ndarray]:
@@ -280,7 +294,7 @@ def _load_outputs(resolved: ResolvedCase, assertion: AssertionConfig) -> Sequenc
     outputs: list[np.ndarray] = []
     for path, shape, dtype in zip(resolved.output_paths, resolved.shape.outputs, dtypes):
         if not path.exists():
-            raise FileNotFoundError(f"expected output missing at {path}")
+            raise FileNotFoundError(f"expected output missing at {path} for case {resolved.case.name}")
         data = np.fromfile(path, dtype=dtype)
         outputs.append(data.reshape(shape))
     return tuple(outputs)
@@ -374,9 +388,11 @@ def _compare_outputs(
 def _print_result(result: CaseRunResult, *, use_color: bool = True) -> None:
     status = result.status
     label, color = _format_status(status, use_color=use_color)
-    print(f"{color}› {label}{Style.RESET_ALL if use_color else ''} {result.identifier}")
+    reset = Style.RESET_ALL if use_color else ""
+    status_block = f"{color}{label:<11}{reset}"
+    print(f"{status_block} {result.identifier}")
     if result.details:
-        print(f"    {result.details}")
+        print(f"    detail: {result.details}")
     if result.metrics:
         metrics_text = ", ".join(f"{k}={v}" for k, v in result.metrics.items())
         print(f"    metrics: {metrics_text}")
@@ -386,7 +402,10 @@ def _print_summary(results: Sequence[CaseRunResult], failures: int, *, use_color
     total = len(results)
     summary_color = Fore.GREEN if failures == 0 and use_color else Fore.RED if use_color else ""
     reset = Style.RESET_ALL if use_color else ""
-    print(f"{summary_color}Summary: {total} run, {failures} failure(s){reset}")
+    passed = sum(1 for r in results if r.status == "passed")
+    xfail = sum(1 for r in results if r.status.startswith("xfail"))
+    failed = failures
+    print(f"{summary_color}Summary{reset}: total={total} passed={passed} xfail={xfail} failed={failed}")
 
 
 def _format_status(status: str, *, use_color: bool) -> tuple[str, str]:
@@ -399,7 +418,14 @@ def _format_status(status: str, *, use_color: bool) -> tuple[str, str]:
         color = Fore.RED
     elif status.startswith("xfail"):
         color = Fore.YELLOW
-    return status.upper(), color
+    label = {
+        "passed": "PASS",
+        "failed": "FAIL",
+        "error": "ERROR",
+        "xfail": "XFAIL",
+        "xfail-pass": "XPASS",
+    }.get(status, status.upper())
+    return label, color
 
 
 def _write_json_report(results: Sequence[CaseRunResult], path: str | None) -> None:
@@ -419,6 +445,35 @@ def _write_json_report(results: Sequence[CaseRunResult], path: str | None) -> No
             for r in results
         ],
     }
+    REPORT_SCHEMA = {
+        "type": "object",
+        "required": ["summary", "cases"],
+        "properties": {
+            "summary": {
+                "type": "object",
+                "required": ["total", "failures"],
+                "properties": {
+                    "total": {"type": "integer"},
+                    "failures": {"type": "integer"},
+                },
+            },
+            "cases": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "status", "details", "metrics", "xfail"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "status": {"type": "string"},
+                        "details": {"type": "string"},
+                        "metrics": {"type": "object"},
+                        "xfail": {"type": "boolean"},
+                    },
+                },
+            },
+        },
+    }
+    Draft7Validator(REPORT_SCHEMA).validate(payload)
     text = json.dumps(payload, indent=2)
     if path:
         Path(path).write_text(text, encoding="utf-8")

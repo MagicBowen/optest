@@ -1,6 +1,6 @@
-# Ascend backend example with optest
+# CANN backend example with optest
 
-This example ships a tiny add operator plus build scripts and relies on optest (new plan format) for all testing.
+This example ships a tiny add operator plus build scripts and relies on optest for all testing.
 
 ## 1) Build the operator
 ```bash

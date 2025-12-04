@@ -2,8 +2,8 @@
 
 This folder contains runnable examples using the new plan format.
 
-- `vector_add_v2/` – minimal vector add using the new plan and built-in generator/assertion.
-- `ascend_operator/` – Ascend-style add operator build driven by the new plan format.
+- `vector_add/` – minimal vector add using the new plan and built-in generator/assertion.
+- `ascend_operator/` – CANN-style add operator build driven by the plan.
 - `custom_op_with_plugins/` – custom generator + assertion without plugins.
 
 Before running any example, install optest (editable or wheel):
@@ -13,4 +13,4 @@ source .venv/bin/activate
 pip install -e .   # or: python -m build && pip install dist/optest-*.whl
 ```
 
-Run each example from within its directory (so `plan.yaml` and `workdir` paths resolve), following the per-example README. `vector_add_v2/plan.yaml` also includes an intentionally failing case tagged `fail`; run it explicitly with `--tags fail` if you want to see failure output.
+Run each example from within its directory (so `plan.yaml` and `workdir` paths resolve), following the per-example README. `vector_add/plan.yaml` also includes an intentionally failing case tagged `fail`; run it explicitly with `--tags fail` if you want to see failure output.

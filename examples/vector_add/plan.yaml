@@ -18,7 +18,7 @@ backends:
     command: ["python", "run.py", "--input0", "{input0}", "--input1", "{input1}", "--output0", "{output0}", "--dtype", "{dtype}", "--shape", "{shape}"]
     skip_cases: ["intended_fail"]
   - type: cuda
-    chip: local
+    chip: local_fail
     workdir: .
     command: ["python", "fail_run.py", "--output0", "{output0}", "--dtype", "{dtype}", "--shape", "{shape}"]
     only_cases: ["intended_fail"]

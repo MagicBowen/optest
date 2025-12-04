@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
 
 import yaml
+from jsonschema import Draft7Validator, ValidationError
 
 from .models import (
     AssertionConfig,
@@ -27,6 +28,10 @@ def load_plan(path: str) -> ExecutionPlan:
     raw = yaml.safe_load(plan_path.read_text(encoding="utf-8")) or {}
     if not isinstance(raw, Mapping):
         raise ValueError("Plan file must contain a mapping at the top level")
+    errors = sorted(_validator.iter_errors(raw), key=lambda e: e.path)
+    if errors:
+        messages = "; ".join(f"{'/'.join(map(str, err.path)) or 'root'}: {err.message}" for err in errors)
+        raise ValueError(f"Plan schema validation failed: {messages}")
     operator = _require_str(raw, "operator")
     description = str(raw.get("description", ""))
     inputs = _parse_str_list(raw.get("inputs"))
@@ -149,6 +154,7 @@ def _parse_backends(raw: Any, base: Path) -> tuple[BackendConfig, ...]:
     if not isinstance(raw, list) or not raw:
         raise ValueError("backends must be a non-empty list")
     backends: list[BackendConfig] = []
+    seen_keys: set[tuple[str, str]] = set()
     for entry in raw:
         if not isinstance(entry, Mapping):
             raise ValueError("Each backend entry must be a mapping")
@@ -156,6 +162,10 @@ def _parse_backends(raw: Any, base: Path) -> tuple[BackendConfig, ...]:
         if b_type not in ALLOWED_BACKENDS:
             raise ValueError(f"Unsupported backend type '{b_type}'")
         chip = _require_str(entry, "chip")
+        key = (b_type, chip)
+        if key in seen_keys:
+            raise ValueError(f"Duplicate backend entry for type={b_type} chip={chip}")
+        seen_keys.add(key)
         workdir_raw = entry.get("workdir")
         workdir = (base / workdir_raw).resolve() if workdir_raw else base
         env_raw = entry.get("env") or {}
@@ -332,3 +342,21 @@ def _validate_cases(
         intersect = set(case.backends.skip) & set(case.backends.xfail)
         if intersect:
             raise ValueError(f"Case '{case.name}' has backends listed in both skip and xfail: {sorted(intersect)}")
+PLAN_SCHEMA = {
+    "type": "object",
+    "required": ["operator", "inputs", "outputs", "backends", "cases"],
+    "properties": {
+        "operator": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "inputs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "outputs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "generator": {"type": ["string", "object"]},
+        "assertion": {"type": ["string", "object"]},
+        "backends": {"type": "array", "minItems": 1},
+        "cases": {"type": "array", "minItems": 1},
+        "cache": {"type": "string"},
+        "tags": {"type": "array", "items": {"type": "string"}},
+        "priority": {"type": ["number", "integer"]},
+    },
+}
+_validator = Draft7Validator(PLAN_SCHEMA)

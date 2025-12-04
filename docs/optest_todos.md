@@ -222,7 +222,7 @@ assertion:
   atol: 1e-7
 backends:
   - type: cann
-    chip: Ascend910b
+    chip: ascend910b
     workdir: /ascend/ops/add
     env: {ASCEND_VISIBLE_DEVICES: "0"}
     command: ["./run.sh", "-r", "cpu", "-v", "{chip}", "-d", "{dtypes}", "-s", "{shapes}", "-i", "{inputs}", "-o", "{outputs}"]

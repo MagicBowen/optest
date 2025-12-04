@@ -89,12 +89,12 @@ class TestRunner:
 
 
 def _maybe_load_golden(case: TestCase) -> Optional[Sequence[np.ndarray]]:
-    from optest.backends.ascend import load_golden_tensors
+    from optest.backends.cann import load_golden_tensors
 
     return load_golden_tensors(case)
 
 
 def _maybe_dump_golden(case: TestCase, expected: Sequence[np.ndarray]) -> None:
-    from optest.backends.ascend import dump_golden_tensors
+    from optest.backends.cann import dump_golden_tensors
 
     dump_golden_tensors(case, expected)
