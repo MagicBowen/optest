@@ -40,7 +40,7 @@ class BackendTarget:
 
 @dataclass(frozen=True)
 class OperatorDescriptor:
-    """Metadata describing an operator within the registry."""
+    """Metadata describing an operator within the catalog."""
 
     name: str
     category: str

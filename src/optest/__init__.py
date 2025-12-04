@@ -5,7 +5,7 @@ import importlib
 import os
 
 from .backends import AscendBackendDriver, backend_manager, register_stub_backends
-from .registry import load_builtins
+from optest.operators.catalog import load_builtins
 
 __all__ = [
     "__version__",

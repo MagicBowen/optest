@@ -1,1 +1,3 @@
-build
+operator/build/*
+operator/input/*
+operator/output/*

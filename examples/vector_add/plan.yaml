@@ -1,0 +1,38 @@
+operator: vector_add
+description: Simple vector add using the plan format
+inputs: ["data/input0.bin", "data/input1.bin"]
+outputs: ["output/output0.bin"]
+cache: regen
+generator:
+  name: builtin.uniform
+  seed: 7
+  params: {low: -1, high: 1}
+assertion:
+  name: builtin.elementwise_add
+  rtol: 0
+  atol: 0
+backends:
+  - type: cuda
+    chip: local
+    workdir: .
+    command: ["python", "run.py", "--input0", "{input0}", "--input1", "{input1}", "--output0", "{output0}", "--dtype", "{dtype}", "--shape", "{shape}"]
+    skip_cases: ["intended_fail"]
+  - type: cuda
+    chip: local
+    workdir: .
+    command: ["python", "fail_run.py", "--output0", "{output0}", "--dtype", "{dtype}", "--shape", "{shape}"]
+    only_cases: ["intended_fail"]
+cases:
+  - name: float32_basic
+    dtypes: [float32, float32]
+    shapes:
+      - {inputs: [[1, 4], [1, 4]], outputs: [[1, 4]]}
+    tags: ["smoke"]
+    priority: 1
+  - name: intended_fail
+    dtypes: [float32, float32]
+    shapes:
+      - {inputs: [[1, 2], [1, 2]], outputs: [[1, 2]]}
+    outputs: ["output/fail_output0.bin"]
+    tags: ["fail"]
+    priority: 99

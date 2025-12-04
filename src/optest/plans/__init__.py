@@ -1,1 +1,0 @@
-"""optest ${pkg} package."""

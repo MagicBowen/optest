@@ -1,6 +1,6 @@
 # Ascend backend example with optest
 
-This example ships a tiny add operator plus build scripts and relies on optest for all testing.
+This example ships a tiny add operator plus build scripts and relies on optest (new plan format) for all testing.
 
 ## 1) Build the operator
 ```bash
@@ -13,7 +13,7 @@ The binary is produced at `./build/add_custom`.
 Two cases are defined (float32 and int32, different shapes):
 ```bash
 cd ..
-optest run --plan ./plan.yaml --backend npu --chip ascend --no-color
+optest run --plan ./plan.yaml --backend cann --chip ascend910b --no-color
 ```
 optest writes inputs to `input/input{0,1}.bin`, runs `./build/add_custom --dtype ...` from the plan, and compares `output/output0.bin` against NumPy reference outputs. If the command fails, optest reports the failure and stderr.
 

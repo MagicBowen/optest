@@ -1,25 +1,30 @@
-backend: npu
-chip: ascend
+operator: elementwise_add
+description: Ascend-style operator plan using the new format
+inputs: ["input/input0.bin", "input/input1.bin"]
+outputs: ["output/output0.bin"]
+cache: regen
+generator:
+  name: builtin.random
+  seed: 123
+assertion:
+  name: builtin.elementwise_add
+  rtol: 1e-5
+  atol: 1e-7
+backends:
+  - type: cann
+    chip: ascend910b
+    workdir: ./operator
+    command: ["./build/add_custom", "--dtype", "{dtype}", "--input0", "{input0}", "--input1", "{input1}", "--output", "{output0}"]
 cases:
-  - op: elementwise_add
+  - name: float32_basic
     dtypes: [float32, float32]
     shapes:
-      input0: [2, 3]
-      input1: [2, 3]
-      output0: [2, 3]
-    attributes:
-      backend_config:
-        ascend:
-          workdir: ./operator
-          command: ["./build/add_custom", "--dtype", "float32"]
-  - op: elementwise_add
+      - {inputs: [[2, 3], [2, 3]], outputs: [[2, 3]]}
+    outputs: ["output/output0_f32.bin"]
+    tags: ["ascend"]
+  - name: int32_basic
     dtypes: [int32, int32]
     shapes:
-      input0: [4, 4]
-      input1: [4, 4]
-      output0: [4, 4]
-    attributes:
-      backend_config:
-        ascend:
-          workdir: ./operator
-          command: ["./build/add_custom", "--dtype", "int32"]
+      - {inputs: [[4, 4], [4, 4]], outputs: [[4, 4]]}
+    outputs: ["output/output0_i32.bin"]
+    tags: ["ascend"]

@@ -1,23 +1,25 @@
-backend: npu
-chip: ascend
+operator: custom_square
+description: Demonstrates custom generator and assertion using the new plan format
+inputs: ["data/input0.bin"]
+outputs: ["output/output0.bin"]
+generator:
+  name: custom_generator
+  source: ./custom_impl.py
+  seed: 42
+assertion:
+  name: custom_assertion
+  source: ./custom_impl.py
+  output_dtypes: [float32]
+  rtol: 0
+  atol: 0
+backends:
+  - type: cuda
+    chip: local
+    workdir: .
+    command: ["python", "run.py", "--input0", "{input0}", "--output0", "{output0}", "--dtype", "{dtype}", "--shape", "{shape}"]
 cases:
-  - op: custom_square
+  - name: float32_small
     dtypes: [float32]
     shapes:
-      input0: [2, 2]
-      output0: [2, 2]
-    attributes:
-      backend_config:
-        ascend:
-          workdir: ./operator
-          command: ["./build/custom_square", "--dtype", "float32"]
-  - op: custom_square
-    dtypes: [int32]
-    shapes:
-      input0: [3, 3]
-      output0: [3, 3]
-    attributes:
-      backend_config:
-        ascend:
-          workdir: ./operator
-          command: ["./build/custom_square", "--dtype", "int32"]
+      - {inputs: [[1, 4]], outputs: [[1, 4]]}
+    tags: ["smoke", "custom"]

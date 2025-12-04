@@ -1,9 +1,10 @@
 # optest examples
 
-This folder contains runnable examples that show how to swap legacy test scripts for optest plans.
+This folder contains runnable examples using the new plan format.
 
-- `ascend_operator/` – a minimal Ascend-style operator build + optest plans (no legacy test scripts).
-- `custom_op_with_plugins/` – shows how to add a user-defined generator/reference for an op not in builtins.
+- `vector_add_v2/` – minimal vector add using the new plan and built-in generator/assertion.
+- `ascend_operator/` – Ascend-style add operator build driven by the new plan format.
+- `custom_op_with_plugins/` – custom generator + assertion without plugins.
 
 Before running any example, install optest (editable or wheel):
 ```bash
@@ -12,4 +13,4 @@ source .venv/bin/activate
 pip install -e .   # or: python -m build && pip install dist/optest-*.whl
 ```
 
-Run each example from within its directory (so `plan.yaml` and `workdir` paths resolve), following the per-example README.
+Run each example from within its directory (so `plan.yaml` and `workdir` paths resolve), following the per-example README. `vector_add_v2/plan.yaml` also includes an intentionally failing case tagged `fail`; run it explicitly with `--tags fail` if you want to see failure output.
