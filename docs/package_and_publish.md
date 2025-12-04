@@ -21,7 +21,7 @@
   python3 -m venv .venv-test
   source .venv-test/bin/activate
   python -m pip install dist/optest-0.1.0-py3-none-any.whl
-  optest --help      # or run a tiny plan to confirm it works
+  optest --version      # or run a tiny plan to confirm it works
   deactivate
 
   5. Tag the release in git
