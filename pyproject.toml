@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "optest"
-version = "0.1.0"
+version = "0.2.0"
 description = "CLI framework for validating AI operators across GPU/NPU targets"
 readme = "README.md"
 requires-python = ">=3.9"
