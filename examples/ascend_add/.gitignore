@@ -1,0 +1,8 @@
+add_kernel/build/*
+add_kernel/cceprint/*
+add_kernel/input/*
+add_kernel/output/*
+add_kernel/out/*
+add_kernel/npuchk/*
+add_kernel/stub_reg.log
+add_kernel/ascendc_kernels_bbit

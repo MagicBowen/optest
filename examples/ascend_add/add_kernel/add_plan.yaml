@@ -1,0 +1,16 @@
+operator: ascend_add
+desciption: "used to test samples/operator/ascendc/0_introduction/3_add_kernellaunch/AddKernelInvocationNeo"
+inputs: ["input/input_x.bin", "input/input_y.bin"]
+outputs: ["output/output_z.bin"]
+generator: {name: builtin.random}
+assertion: {name: builtin.elementwise_add, rtol: 1e-3, atol: 1e-5}
+backends:
+  - type: cann
+    chip: ascend910b
+    workdir: .
+    command: ["bash", "run_entry.sh", "-r", "cpu", "-v", "Ascend910B"]
+cases:
+  - name: f16_8_2048
+    dtypes: [float16, float16]
+    shapes: [{inputs: [[1, 16384], [1, 16384]], outputs: [[1, 16384]]}]
+cache: regen

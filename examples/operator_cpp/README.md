@@ -4,7 +4,7 @@ This example ships a tiny add operator plus build scripts and relies on optest f
 
 ## 1) Build the operator
 ```bash
-cd examples/ascend_operator/operator
+cd examples/operator_cpp/operator
 bash build.sh
 ```
 The binary is produced at `./build/add_custom`.
