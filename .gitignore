@@ -2,6 +2,7 @@
 env_setup.sh
 tmp/
 .venv/
+.venv-test/
 __pycache__/
 dist/
 .pytest_cache/
