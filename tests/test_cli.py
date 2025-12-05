@@ -11,7 +11,7 @@ def test_cli_help_short_flag() -> None:
     assert "run" in result.output
 
 
-def test_cli_run_plan_v2(tmp_path) -> None:
+def test_cli_run_plan(tmp_path) -> None:
     script = tmp_path / "adder.py"
     script.write_text(
         "import numpy as np;import argparse;"

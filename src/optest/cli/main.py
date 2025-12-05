@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import sys
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import click
+import yaml
 
 from optest import __version__, bootstrap
 from optest.plan import PlanOptions, load_plan, run_plan
@@ -115,24 +116,6 @@ def run(
     raise click.exceptions.Exit(exit_code)
 
 
-def main(argv: Optional[list[str]] = None) -> int:
-    """Program entry point for console_scripts shim."""
-
-    argv = argv if argv is not None else sys.argv[1:]
-    try:
-        cli.main(args=argv, prog_name="optest", standalone_mode=True)
-    except click.ClickException as err:  # pragma: no cover - click handles display
-        err.show()
-        return err.exit_code
-    except SystemExit as exc:  # click may raise exit code
-        return int(exc.code)
-    return 0
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
-
-
 def _parse_dtype_option(value: Optional[str]) -> Optional[Tuple[str, ...]]:
     if not value:
         return None
@@ -197,8 +180,19 @@ def _split_csv(value: Optional[str]) -> Tuple[str, ...]:
     return tuple(parts)
 
 
-def _split_csv(value: Optional[str]) -> Tuple[str, ...]:
-    if not value:
-        return tuple()
-    parts = [part.strip() for part in value.split(",") if part.strip()]
-    return tuple(parts)
+def main(argv: Optional[list[str]] = None) -> int:
+    """Program entry point for console_scripts shim."""
+
+    argv = argv if argv is not None else sys.argv[1:]
+    try:
+        cli.main(args=argv, prog_name="optest", standalone_mode=True)
+    except click.ClickException as err:  # pragma: no cover - click handles display
+        err.show()
+        return err.exit_code
+    except SystemExit as exc:  # click may raise exit code
+        return int(exc.code)
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

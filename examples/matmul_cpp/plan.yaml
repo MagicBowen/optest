@@ -1,0 +1,43 @@
+operator: matmul_cpp
+description: C++ matmul runner driven by optest
+inputs: ["data/input0.bin", "data/input1.bin"]
+outputs: ["out/output0.bin"]
+generator:
+  name: builtin.uniform
+  params: {low: -2, high: 2}
+  seed: 0
+assertion:
+  name: builtin.matmul
+cache: regen
+backends:
+  - type: cuda
+    chip: local
+    workdir: .
+    command: ["./operator/build/matmul_runner", "--input0", "{input0}", "--input1", "{input1}", "--output0", "{output0}", "--dtype", "{dtype}", "--shapes", "{shapes}"]
+cases:
+  - name: float_small
+    dtypes: [float32, float32]
+    shapes:
+      - inputs: [[2, 3], [3, 4]]
+        outputs: [[2, 4]]
+      - inputs: [[4, 2], [2, 1]]
+        outputs: [[4, 1]]
+  - name: int_basic
+    dtypes: [int32, int32]
+    shapes:
+      - inputs: [[2, 2], [2, 2]]
+        outputs: [[2, 2]]
+      - inputs: [[1, 3], [3, 1]]
+        outputs: [[1, 1]]
+  - name: bad_shape_output
+    tags: [xfail-demo]
+    dtypes: [float32, float32]
+    shapes:
+      - inputs: [[2, 2], [2, 2]]
+        outputs: [[1, 1]]  # wrong output shape to demo failure
+  - name: bad_dtype
+    tags: [xfail-demo]
+    dtypes: [float16, float16]  # runner does not support float16
+    shapes:
+      - inputs: [[1, 1], [1, 1]]
+        outputs: [[1, 1]]

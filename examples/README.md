@@ -5,6 +5,7 @@ This folder contains runnable examples using the new plan format.
 - `vector_add/` – minimal vector add using the new plan and built-in generator/assertion.
 - `ascend_operator/` – CANN-style add operator build driven by the plan.
 - `custom_op_with_plugins/` – custom generator + assertion without plugins.
+- `matmul_cpp/` – C++ matmul runner (float/int) showing how to wire a native binary to optest, with demo failure cases tagged `xfail-demo`.
 
 Before running any example, install optest (editable or wheel):
 ```bash

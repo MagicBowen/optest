@@ -18,6 +18,35 @@ from optest.operators import builtin_operators
 from . import custom
 from .models import AssertionConfig, AssertionResult, CaseRunResult, ExecutionPlan, GeneratorConfig, PlanOptions, ResolvedCase
 
+# Registry of built-in operator classes keyed by normalized assertion name.
+_BUILTIN_ASSERTION_REGISTRY: Dict[str, type[builtin_operators.BuiltinOperator]] = {}
+
+
+def _normalize_builtin_key(name: str) -> str:
+    """Normalize assertion.name to a registry key (case-insensitive, strip prefixes)."""
+
+    text = name or ""
+    if ":" in text:
+        text = text.split(":", 1)[-1]
+    if text.endswith(".run"):
+        text = text[: -len(".run")]
+    if "." in text:
+        text = text.split(".")[-1]
+    return text.lower()
+
+
+def _populate_builtin_registry() -> None:
+    if _BUILTIN_ASSERTION_REGISTRY:
+        return
+    for cls in builtin_operators.BUILTIN_OPERATOR_CLASSES:
+        aliases = {
+            cls.name.lower(),
+            f"builtin.{cls.name}".lower(),
+            cls.__name__.lower(),
+        }
+        for alias in aliases:
+            _BUILTIN_ASSERTION_REGISTRY.setdefault(alias, cls)
+
 
 def run_plan(
     plan: ExecutionPlan,
@@ -203,7 +232,11 @@ def _generate_array(
     if name.endswith("random"):
         data = rng.standard_normal(size=shape).astype(dtype)
     else:
-        raise ValueError(f"Unknown generator '{name}'")
+        raise ValueError(
+            f"Unknown generator '{name}'. "
+            "Supported builtins: builtin.random, builtin.uniform, builtin.ones. "
+            "For a custom generator, set both generator.name and generator.source."
+        )
     scale = float(constants.get("scale", 1.0))
     shift = float(constants.get("shift", 0.0))
     return (data * scale + shift).astype(dtype)
@@ -218,9 +251,9 @@ def _ensure_output_dirs(paths: Sequence[Path]) -> None:
 
 def _run_backend_commands(resolved: ResolvedCase) -> None:
     backend = resolved.backend
-    env = os.environ.copy()
-    env.update(backend.env)
     tokens = _build_tokens(resolved)
+    env = os.environ.copy()
+    env.update(_render_env(backend.env, tokens))
     for cmd in backend.prepare:
         _run_command(cmd.argv, backend.workdir, env, tokens, backend.timeout)
     _run_command(backend.command.argv, backend.workdir, env, tokens, backend.timeout, backend.retries)
@@ -279,14 +312,32 @@ def _build_tokens(resolved: ResolvedCase) -> Dict[str, str]:
 
 
 def _render_token(value: str, tokens: Mapping[str, str]) -> str:
+    return _render_template(value, tokens, quote=True)
+
+
+def _render_template(value: str, tokens: Mapping[str, str], *, quote: bool) -> str:
     if "{" in value and "}" in value:
         try:
             rendered = value.format(**tokens)
         except KeyError as exc:
-            raise RuntimeError(f"Unknown token {exc} in command part '{value}'") from exc
+            available = ", ".join(sorted(tokens.keys()))
+            raise RuntimeError(
+                f"Unknown token {exc} in value '{value}'. Available tokens: {available}"
+            ) from exc
     else:
         rendered = value
-    return shlex.quote(rendered) if rendered else rendered
+    if quote and rendered:
+        return shlex.quote(rendered)
+    return rendered
+
+
+def _render_env(values: Mapping[str, str], tokens: Mapping[str, str]) -> Dict[str, str]:
+    rendered: Dict[str, str] = {}
+    for key, value in values.items():
+        rendered_key = _render_template(str(key), tokens, quote=False)
+        rendered_value = _render_template(str(value), tokens, quote=False)
+        rendered[rendered_key] = rendered_value
+    return rendered
 
 
 def _load_outputs(resolved: ResolvedCase, assertion: AssertionConfig) -> Sequence[np.ndarray]:
@@ -348,16 +399,29 @@ def _builtin_assertion(
     outputs: Sequence[np.ndarray],
     resolved: ResolvedCase,
 ) -> AssertionResult:
+    _populate_builtin_registry()
     name = assertion.name
-    rtol = assertion.rtol if assertion.rtol is not None else 1e-5
-    atol = assertion.atol if assertion.atol is not None else 1e-4
-    metric_name = assertion.metric or "max_abs"
-    if name.endswith("elementwise_add"):
-        expected = builtin_operators.ElementwiseAdd.run(inputs, {})
-    elif name.endswith("identity"):
+    normalized = _normalize_builtin_key(name)
+    if normalized == "identity":
         expected = outputs
+        default_tol = None
     else:
-        return AssertionResult(ok=False, details=f"Unknown builtin assertion '{name}'")
+        op_cls = _BUILTIN_ASSERTION_REGISTRY.get(normalized)
+        if not op_cls:
+            supported = ", ".join(sorted({cls.name for cls in _BUILTIN_ASSERTION_REGISTRY.values()}))
+            return AssertionResult(
+                ok=False,
+                details=(
+                    f"Unknown builtin assertion '{name}'. "
+                    f"Supported builtins: {supported}. "
+                    "For custom assertions, set both assertion.name and assertion.source."
+                ),
+            )
+        expected = op_cls.run(inputs, assertion.params)
+        default_tol = getattr(op_cls, "default_tolerance", None)
+    rtol = assertion.rtol if assertion.rtol is not None else (default_tol.relative if default_tol else 1e-5)
+    atol = assertion.atol if assertion.atol is not None else (default_tol.absolute if default_tol else 1e-4)
+    metric_name = assertion.metric or "max_abs"
     ok, details, metrics = _compare_outputs(outputs, expected, rtol, atol, metric_name)
     return AssertionResult(ok=ok, details=details, metrics=metrics)
 

@@ -37,9 +37,9 @@ class BuiltinOperator:
     """Base class for built-in operators."""
 
     name: str
-    category: str
     num_inputs: int
     dtype_variants: tuple
+    category: str = ""
     attribute_names: tuple = ()
     description: str = ""
     tags: tuple = ()
@@ -53,7 +53,7 @@ class BuiltinOperator:
     def descriptor(cls) -> OperatorDescriptor:
         return OperatorDescriptor(
             name=cls.name,
-            category=cls.category,
+            category=getattr(cls, "category", ""),
             num_inputs=cls.num_inputs,
             dtype_variants=cls.dtype_variants,
             attribute_names=getattr(cls, "attribute_names", ()),
@@ -66,10 +66,8 @@ class BuiltinOperator:
 
 class ElementwiseAdd(BuiltinOperator):
     name = "elementwise_add"
-    category = "tensor"
     num_inputs = 2
     dtype_variants = BINARY_ELEMENTWISE_DTYPES
-    tags = ("elementwise", "tensor")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -79,10 +77,8 @@ class ElementwiseAdd(BuiltinOperator):
 
 class ElementwiseSub(BuiltinOperator):
     name = "elementwise_sub"
-    category = "tensor"
     num_inputs = 2
     dtype_variants = BINARY_ELEMENTWISE_DTYPES
-    tags = ("elementwise", "tensor")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -92,10 +88,8 @@ class ElementwiseSub(BuiltinOperator):
 
 class ElementwiseMul(BuiltinOperator):
     name = "elementwise_mul"
-    category = "tensor"
     num_inputs = 2
     dtype_variants = BINARY_ELEMENTWISE_DTYPES
-    tags = ("elementwise", "tensor")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -105,10 +99,8 @@ class ElementwiseMul(BuiltinOperator):
 
 class ElementwiseDiv(BuiltinOperator):
     name = "elementwise_div"
-    category = "tensor"
     num_inputs = 2
     dtype_variants = BINARY_FLOAT_DTYPES
-    tags = ("elementwise", "tensor")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -118,10 +110,8 @@ class ElementwiseDiv(BuiltinOperator):
 
 class Equal(BuiltinOperator):
     name = "equal"
-    category = "comparison"
     num_inputs = 2
     dtype_variants = BINARY_LOGICAL_DTYPES
-    tags = ("comparison", "logical")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -131,10 +121,8 @@ class Equal(BuiltinOperator):
 
 class Greater(BuiltinOperator):
     name = "greater"
-    category = "comparison"
     num_inputs = 2
     dtype_variants = BINARY_LOGICAL_DTYPES
-    tags = ("comparison", "logical")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -144,10 +132,8 @@ class Greater(BuiltinOperator):
 
 class Less(BuiltinOperator):
     name = "less"
-    category = "comparison"
     num_inputs = 2
     dtype_variants = BINARY_LOGICAL_DTYPES
-    tags = ("comparison", "logical")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -157,10 +143,8 @@ class Less(BuiltinOperator):
 
 class LessEqual(BuiltinOperator):
     name = "less_equal"
-    category = "comparison"
     num_inputs = 2
     dtype_variants = BINARY_LOGICAL_DTYPES
-    tags = ("comparison", "logical")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -170,10 +154,8 @@ class LessEqual(BuiltinOperator):
 
 class GreaterEqual(BuiltinOperator):
     name = "greater_equal"
-    category = "comparison"
     num_inputs = 2
     dtype_variants = BINARY_LOGICAL_DTYPES
-    tags = ("comparison", "logical")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -183,10 +165,8 @@ class GreaterEqual(BuiltinOperator):
 
 class VectorDot(BuiltinOperator):
     name = "vector_dot"
-    category = "linalg"
     num_inputs = 2
     dtype_variants = BINARY_ELEMENTWISE_DTYPES
-    tags = ("vector", "dot", "reduction")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -196,10 +176,8 @@ class VectorDot(BuiltinOperator):
 
 class VectorNorm(BuiltinOperator):
     name = "vector_norm"
-    category = "linalg"
     num_inputs = 1
     dtype_variants = UNARY_FLOAT_DTYPES
-    tags = ("vector", "reduction")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -209,10 +187,8 @@ class VectorNorm(BuiltinOperator):
 
 class VectorSum(BuiltinOperator):
     name = "vector_sum"
-    category = "tensor"
     num_inputs = 1
     dtype_variants = UNARY_ELEMENTWISE_DTYPES
-    tags = ("vector", "reduction")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -222,11 +198,9 @@ class VectorSum(BuiltinOperator):
 
 class Gemm(BuiltinOperator):
     name = "gemm"
-    category = "linalg"
     num_inputs = 2
     dtype_variants = GEMM_DTYPES
     attribute_names = ("m", "n", "k", "trans_a", "trans_b")
-    tags = ("gemm", "matrix", "dense")
     default_tolerance = Tolerance(absolute=1e-4, relative=1e-5)
 
     @staticmethod
@@ -244,10 +218,8 @@ class Gemm(BuiltinOperator):
 
 class Matmul(BuiltinOperator):
     name = "matmul"
-    category = "linalg"
     num_inputs = 2
     dtype_variants = GEMM_DTYPES
-    tags = ("matmul", "matrix", "dense")
     default_tolerance = Tolerance(absolute=1e-4, relative=1e-5)
 
     @staticmethod
@@ -258,10 +230,8 @@ class Matmul(BuiltinOperator):
 
 class Relu(BuiltinOperator):
     name = "relu"
-    category = "activation"
     num_inputs = 1
     dtype_variants = ACTIVATION_DTYPES
-    tags = ("activation", "relu")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -271,10 +241,8 @@ class Relu(BuiltinOperator):
 
 class Sigmoid(BuiltinOperator):
     name = "sigmoid"
-    category = "activation"
     num_inputs = 1
     dtype_variants = ACTIVATION_DTYPES
-    tags = ("activation", "sigmoid")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -284,10 +252,8 @@ class Sigmoid(BuiltinOperator):
 
 class Tanh(BuiltinOperator):
     name = "tanh"
-    category = "activation"
     num_inputs = 1
     dtype_variants = ACTIVATION_DTYPES
-    tags = ("activation", "tanh")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -297,11 +263,9 @@ class Tanh(BuiltinOperator):
 
 class LeakyRelu(BuiltinOperator):
     name = "leaky_relu"
-    category = "activation"
     num_inputs = 1
     dtype_variants = ACTIVATION_DTYPES
     attribute_names = ("alpha",)
-    tags = ("activation", "relu")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -312,10 +276,8 @@ class LeakyRelu(BuiltinOperator):
 
 class Sinh(BuiltinOperator):
     name = "sinh"
-    category = "activation"
     num_inputs = 1
     dtype_variants = ACTIVATION_DTYPES
-    tags = ("activation", "sinh")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -325,11 +287,9 @@ class Sinh(BuiltinOperator):
 
 class Softmax(BuiltinOperator):
     name = "softmax"
-    category = "activation"
     num_inputs = 1
     dtype_variants = ACTIVATION_DTYPES
     attribute_names = ("axis",)
-    tags = ("activation", "softmax")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -343,11 +303,9 @@ class Softmax(BuiltinOperator):
 
 class ReduceSum(BuiltinOperator):
     name = "reduce_sum"
-    category = "reduction"
     num_inputs = 1
     dtype_variants = REDUCTION_DTYPES
     attribute_names = ("axis", "keepdims")
-    tags = ("reduction",)
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -359,11 +317,9 @@ class ReduceSum(BuiltinOperator):
 
 class ReduceMean(BuiltinOperator):
     name = "reduce_mean"
-    category = "reduction"
     num_inputs = 1
     dtype_variants = REDUCTION_DTYPES
     attribute_names = ("axis", "keepdims")
-    tags = ("reduction",)
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -375,11 +331,9 @@ class ReduceMean(BuiltinOperator):
 
 class BroadcastTo(BuiltinOperator):
     name = "broadcast_to"
-    category = "tensor"
     num_inputs = 1
     dtype_variants = REDUCTION_FLOAT_DTYPES
     attribute_names = ("shape",)
-    tags = ("broadcast",)
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -393,11 +347,9 @@ class BroadcastTo(BuiltinOperator):
 
 class MaxPool2d(BuiltinOperator):
     name = "maxpool2d"
-    category = "pooling"
     num_inputs = 1
     dtype_variants = POOL_DTYPES
     attribute_names = ("kernel_size", "stride", "padding")
-    tags = ("pool", "maxpool")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -406,11 +358,9 @@ class MaxPool2d(BuiltinOperator):
 
 class AvgPool2d(BuiltinOperator):
     name = "avgpool2d"
-    category = "pooling"
     num_inputs = 1
     dtype_variants = POOL_DTYPES
     attribute_names = ("kernel_size", "stride", "padding")
-    tags = ("pool", "avgpool")
 
     @staticmethod
     def run(inputs: ArraySeq, attrs: AttrMap) -> ArraySeq:
@@ -419,11 +369,9 @@ class AvgPool2d(BuiltinOperator):
 
 class Conv2d(BuiltinOperator):
     name = "conv2d"
-    category = "convolution"
     num_inputs = 2
     dtype_variants = CONV_DTYPES
     attribute_names = ("stride", "dilation", "groups", "padding")
-    tags = ("conv2d", "convolution")
     default_tolerance = Tolerance(absolute=1e-3, relative=1e-3)
 
     @staticmethod

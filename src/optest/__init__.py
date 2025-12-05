@@ -5,7 +5,6 @@ import importlib
 import os
 
 from .backends import CannBackendDriver, backend_manager, register_stub_backends
-from optest.operators.catalog import load_builtins
 
 __all__ = [
     "__version__",
@@ -23,7 +22,6 @@ def bootstrap() -> None:
     global _BOOTSTRAPPED
     if _BOOTSTRAPPED:
         return
-    load_builtins()
     _load_plugins()
     register_stub_backends()
     backend_manager.register(

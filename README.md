@@ -1,6 +1,6 @@
 # optest
 
-optest is a Python CLI for validating AI operators across GPU/NPU targets using a declarative YAML plan. A plan describes inputs/outputs, generators, assertions, backends/commands, and test cases. optest renders templates, generates data, runs your command, and checks results with colored terminal output or JSON.
+`optest` is a Python CLI that validates operators via a declarative YAML plan. It renders template tokens, generates inputs, runs your binary or script, and checks outputs using built-in or custom assertions. Reports are printed in color or emitted as JSON.
 
 ## Install
 ```bash
@@ -9,100 +9,136 @@ source .venv/bin/activate
 pip install -e .   # or: python -m build && pip install dist/optest-*.whl
 ```
 
-## Plan format (single source of truth)
-Top-level fields:
+## Quick start
+```bash
+optest run --plan examples/vector_add/plan.yaml --backend cuda --chip local
+```
+`vector_add` uses `builtin.ones` to generate inputs, runs a tiny Python adder, and validates with `builtin.elementwise_add`.
+
+## C++ matmul example (wrap your own entry)
+1) Build the runner:
+   ```bash
+   cd examples/matmul_cpp/operator
+   bash build.sh  # produces build/matmul_runner
+   ```
+2) Run the plan (float + int shapes):
+   ```bash
+   optest run --plan examples/matmul_cpp/plan.yaml --backend cuda --chip local
+   ```
+3) Failure demos (intentional errors):
+   ```bash
+   optest run --plan examples/matmul_cpp/plan.yaml --backend cuda --chip local --tags xfail-demo
+   ```
+
+Plan excerpt (tokens flow into the C++ runner):
 ```yaml
-operator: vector_add                  # required
-description: z = x + y                # optional
-inputs: ["data/input0.bin", "data/input1.bin"]   # required; defaults for all cases
-outputs: ["output/output0.bin"]                   # required; defaults for all cases
-generator:                            # optional; defaults to builtin.random
-  name: builtin.random
-  seed: 123
-  params: {low: -1, high: 1}
-  constants: {value: null, scale: 1.0, shift: 0.0}  # built-ins honor these
-  per_input:
-    "0": {name: builtin.uniform, params: {low: 0, high: 1}}
-assertion:                            # optional; defaults to builtin.identity
-  name: builtin.elementwise_add
-  rtol: 1e-5
-  atol: 1e-7
-  metric: max_abs                     # max_abs or mean_abs supported
-  output_dtypes: [float32]
-backends:                             # required; supports type: cuda | cann
+operator: matmul_cpp
+inputs: ["data/input0.bin", "data/input1.bin"]
+outputs: ["out/output0.bin"]
+generator: {name: builtin.uniform, seed: 0}
+assertion: {name: builtin.matmul}
+backends:
   - type: cuda
     chip: local
     workdir: .
-    env: {CUDA_VISIBLE_DEVICES: "0"}
-    timeout: 300
-    retries: 1
-    prepare: [["echo", "prep"]]
-    cleanup: [["echo", "done"]]
-    command: ["./run.sh", "-d", "{dtypes}", "-s", "{shapes}", "-i", "{inputs}", "-o", "{outputs}"]
-    only_cases: []                    # optional allowlist
-    skip_cases: []                    # optional skip list
-    xfail_cases: []                   # optional expected-fail list
-cases:                                # required
-  - name: float32_basic
-    dtypes: [float32, float32]        # len matches inputs
-    shapes:                           # each entry defines a shape combo
-      - {inputs: [[1, 4], [1, 4]], outputs: [[1, 4]]}
-    generator: {seed: 42}             # optional override
-    assertion: {rtol: 1e-5}           # optional override
-    inputs: ["data/input0.bin", "data/input1.bin"]   # optional override
-    outputs: ["output/output0.bin"]                  # optional override
-    backends: {only: [], skip: [], xfail: []}        # optional per-case filter
-    tags: ["smoke"]
-    priority: 10
-cache: reuse                          # reuse | regen (optional)
-tags: ["plan-tag"]                    # optional
-priority: 1                           # optional; default priority for cases
+    command: ["./operator/build/matmul_runner",
+              "--input0", "{input0}", "--input1", "{input1}",
+              "--output0", "{output0}", "--dtype", "{dtype}", "--shapes", "{shapes}"]
+cases:
+  - name: float_small
+    dtypes: [float32, float32]
+    shapes: [{inputs: [[2,3],[3,4]], outputs: [[2,4]]}]
 ```
 
-Templating tokens (available in `command`/`prepare`/`cleanup`): `{chip}`, `{backend}`, `{case}`, `{dtype}`, `{dtypes}`, `{shape}`, `{shapes}`, `{input0}`/`{inputs}`, `{output0}`/`{outputs}`, `{workdir}`. Values are formatted then shell-escaped.
-
-Built-in generators: `builtin.random`, `builtin.uniform`, `builtin.ones` (honor `constants` value/scale/shift). Custom generators/assertions: set `name` to your function and `source` to a Python file; optest loads and calls:
-- Generator function signature: `fn(input_paths, shapes, dtypes, params, seed, constants, rng)`
-- Assertion function signature: `fn(input_paths, output_paths, shapes, dtypes, output_dtypes, params, rtol, atol, metric)` returning `AssertionResult(ok, details, metrics)` or `(ok, details)`.
-
-## CLI usage
-```bash
-optest run --plan ./plan.yaml --backend cuda --chip local \
-  --cases float32_basic --tags smoke --skip-tags slow \
-  --priority-max 10 --cache reuse|regen \
-  --report terminal|json [--report-path path] [--list] [--no-color]
+Wrapper snippet (see `examples/matmul_cpp/operator/matmul_runner.cpp`):
+```cpp
+int main(int argc, char** argv) {
+    Options opts = parse_args(argc, argv);        // accepts --dtype/--input0/--input1/--output0/--shapes
+    MatmulShape shape = parse_shapes(opts.shapes_json);
+    if (opts.dtype == "float32") {
+        run_matmul<float>(opts, shape);           // loads inputs, calls matmul_kernel, writes output
+    } else if (opts.dtype == "int32") {
+        run_matmul<int32_t>(opts, shape);
+    } else {
+        throw std::runtime_error("unsupported dtype");
+    }
+}
 ```
-- `--backend/--chip` select a backend entry; must match plan backends.
-- `--cases` (globs), `--tags`, `--skip-tags`, `--priority-max` filter what runs.
-- `--cache` overrides plan cache.
-- `--report` chooses terminal (default) or JSON; `--report-path` writes JSON to a file.
-- `--list` prints matched cases without running.
-- Colors are on by default; use `--no-color` to disable.
+The compute kernel lives in `matmul_kernel.cpp` to keep math separate from optest IO/parsing.
 
-## Execution output formats
-- Terminal: colored, aligned lines per case: `PASS/FAIL/XFAIL/XPASS/ERROR <case@backend:chip/shape_idx>` with indented details/metrics, plus a summary `total=<n> passed=<p> xfail=<xf> failed=<f>`.
-- JSON: inline-schema validated object with `summary` (total/failures) and `cases` (id, status, details, metrics, xfail).
+## Plan file reference (paths relative to plan file if not absolute)
+- `operator` (required)
+- `description` (optional, default `""`)
+- `inputs` (required): list of input file paths
+- `outputs` (required): list of output file paths
+- `generator` (optional, per-case override allowed, default `{name: builtin.random}`):
+  - `name` (default `builtin.random`), `source` (Python path), `seed` (int | null), `params` (dict, default `{}`),
+    `constants` (dict, default `{}`), `per_input` (dict index->generator, default `{}`)
+- `assertion` (optional, per-case override allowed, default `{name: builtin.identity}`):
+  - `name`, `source`, `rtol` (default builtin tolerance or `1e-5`), `atol` (default builtin tolerance or `1e-4`),
+    `metric` (`max_abs` default), `output_dtypes` (defaults to case dtypes), `params` (dict, default `{}`)
+- `backends` (required, non-empty list):
+  - `type` (`cuda` | `cann`), `chip` (string), `workdir` (default plan dir),
+    `env` (dict, default `{}`, templated), `timeout` (seconds, default `null`),
+    `retries` (default `0`), `prepare` (list of commands, default `[]`),
+    `cleanup` (list of commands, default `[]`), `command` (required),
+    `only_cases`/`skip_cases`/`xfail_cases` (lists, default `[]`)
+- `cases` (required, non-empty list):
+  - `name`, `dtypes` (match `inputs` length), `shapes` (list of `{inputs, outputs}`),
+    optional `generator`, `assertion`, `inputs`, `outputs`, `backends` (`{only, skip, xfail}` default empty),
+    `tags` (list, default `[]`), `priority` (int | null, default plan priority)
+- `cache` (optional, default `reuse`; `regen` forces new inputs)
+- `tags` (optional list)
+- `priority` (optional default priority for cases)
 
-## User extension points
-- **Generators** (Python function): point to a file + function; no packaging needed.
+Templating tokens (rendered in `command`/`prepare`/`cleanup` and `env`): `{chip}`, `{backend}`, `{case}`, `{dtype}`, `{dtypes}`, `{shape}`,
+`{shapes}`, `{input0}`/`{inputs}`, `{output0}`/`{outputs}`, `{workdir}`. Tokens are shell-escaped for argv; env keys/values are formatted without shell escaping.
+
+Built-in generators: `builtin.random`, `builtin.uniform`, `builtin.ones` (support `constants` value/scale/shift).
+Built-in assertions: all operators in `optest.operators.builtin_operators` plus `builtin.identity` (output self-check).
+
+## CLI reference
+`optest run [OPTIONS]`
+- `--plan / --config PATH` (required): plan YAML.
+- `--backend STRING`, `--chip STRING`: select a backend entry.
+- `--cases STRING`: comma-separated globs.
+- `--tags STRING`: comma-separated tags to include.
+- `--skip-tags STRING`: comma-separated tags to skip.
+- `--priority-max INT`: skip cases above this priority.
+- `--cache [reuse|regen]`: override plan cache.
+- `--list`: list matched cases without running.
+- `--report [terminal|json]` and `--report-path PATH`: output format (default terminal).
+- `--no-color`: disable ANSI colors.
+- `--verbose`: extra logging (placeholder).
+- Exit code: 0 on full success, 1 on failures/errors.
+
+## Extend and adapt
+- **Custom generator**: point to a Python file + function. Use `params/constants/seed` to drive behavior.
   ```yaml
   generator:
-    name: my_generator
+    name: my_gaussian
     source: ./custom_gen.py
+    params: {mean: 0.0, std: 0.1}
+    constants: {scale: 2.0, shift: 1.0}
   ```
   ```python
   # custom_gen.py
   import numpy as np
-  def my_generator(*, input_paths, shapes, dtypes, params, seed, constants, rng):
+
+  def my_gaussian(*, input_paths, shapes, dtypes, params, seed, constants, rng):
+      mean = float(params.get("mean", 0.0))
+      std = float(params.get("std", 1.0))
+      scale = float(constants.get("scale", 1.0))
+      shift = float(constants.get("shift", 0.0))
       for path, shape, dtype in zip(input_paths, shapes["inputs"], dtypes):
-          data = rng.standard_normal(size=shape).astype(dtype)
-          np.full(shape, params.get("fill", 0), dtype=dtype)  # use params/constants if desired
-          np.asarray(data).tofile(path)
+          data = rng.normal(loc=mean, scale=std, size=shape).astype(dtype)
+          (data * scale + shift).astype(dtype).tofile(path)
   ```
-- **Assertions** (Python function): compute goldens and compare outputs.
+
+- **Custom assertion**: compute goldens however you like; return `AssertionResult` or `(ok, details)`.
   ```yaml
   assertion:
-    name: my_assertion
+    name: my_assert
     source: ./custom_assert.py
     rtol: 1e-4
     atol: 1e-5
@@ -111,73 +147,40 @@ optest run --plan ./plan.yaml --backend cuda --chip local \
   # custom_assert.py
   import numpy as np
   from optest.plan.models import AssertionResult
-  def my_assertion(*, input_paths, output_paths, shapes, dtypes, output_dtypes, params, rtol, atol, metric):
+
+  def my_assert(*, input_paths, output_paths, shapes, dtypes, output_dtypes, params, rtol, atol, metric):
       x = np.fromfile(input_paths[0], dtype=dtypes[0]).reshape(shapes["inputs"][0])
-      out = np.fromfile(output_paths[0], dtype=output_dtypes[0]).reshape(shapes["outputs"][0])
-      golden = np.square(x) + 1
-      if np.allclose(out, golden, rtol=rtol or 0, atol=atol or 0):
+      y = np.fromfile(output_paths[0], dtype=output_dtypes[0]).reshape(shapes["outputs"][0])
+      golden = np.sin(x)
+      if np.allclose(y, golden, rtol=rtol or 1e-5, atol=atol or 1e-4):
           return AssertionResult(ok=True, details="")
-      diff = float(np.max(np.abs(out - golden)))
+      diff = float(np.max(np.abs(y - golden)))
       return AssertionResult(ok=False, details=f"max_abs={diff}", metrics={"max_abs": diff})
   ```
-- **Operators** (plugins): register new descriptors before running.
-  ```python
-  # my_plugin.py
-  from optest.core import OperatorDescriptor, Tolerance
-  from optest.operators import catalog
-  def register():
-      desc = OperatorDescriptor(
-          name="my_op",
-          category="custom",
-          num_inputs=1,
-          dtype_variants=(("float32",),),
-          default_reference="my_plugin:my_reference",
-          default_tolerance=Tolerance(absolute=1e-5, relative=1e-5),
-      )
-      catalog._catalog[desc.name] = desc  # or provide a helper to register cleanly
-  def my_reference(inputs, attrs):
-      (x,) = inputs
-      return (x + 1,)
+
+- **Native operators**: accept CLI args for dtype/shape/IO paths and call your kernel. Example command in a plan:
+  ```yaml
+  command: ["./build/my_op", "--input0", "{input0}", "--output0", "{output0}", "--dtype", "{dtype}", "--shape", "{shape}"]
   ```
-  Run with `OPTEST_PLUGINS=my_plugin optest run --plan ...`.
-- **Backends**: implement and register a `BackendDriver` to target new hardware; or rely on command backends in the plan. Example skeleton:
-  ```python
-  from optest.backends import BackendDriver, backend_manager
-  class MyBackend(BackendDriver):
-      name = "my-backend"
-      kind = "gpu"
-      chips = ("x1",)
-      def run(self, case, inputs):
-          # launch your kernel; return numpy outputs
-          return inputs
-  backend_manager.register(MyBackend())
+  Your C/C++/Rust/Go entry point only needs to parse these args, read/write raw binaries, and run the kernel (see `examples/matmul_cpp` for a full C++ reference).
+
+- **Per-backend setup**: use templated env/prepare/cleanup.
+  ```yaml
+  backends:
+    - type: cuda
+      chip: local
+      env: {CUDA_VISIBLE_DEVICES: "0", RUN_ID: "{case}-{shape}"}
+      prepare: [["bash", "scripts/setup.sh", "{backend}", "{chip}"]]
+      cleanup: [["bash", "scripts/teardown.sh", "{case}"]]
+      command: ["./bin/run_op", "--input0", "{input0}", "--output0", "{output0}", "--dtype", "{dtype}", "--shape", "{shape}"]
   ```
 
-## How to adapt your code to optest
-1) **Build your operator** (binary or script) so it accepts CLI args for dtype/shape/IO paths.
-2) **Author a plan** next to the binary:
-   ```yaml
-   operator: my_add
-   inputs: ["input/in0.bin", "input/in1.bin"]
-   outputs: ["output/out0.bin"]
-   backends:
-     - type: cuda
-       chip: local
-       workdir: .
-       command: ["./build/my_add", "--dtype", "{dtypes}", "--shape", "{shapes}", "--in0", "{input0}", "--in1", "{input1}", "--out0", "{output0}"]
-   cases:
-     - name: f32
-       dtypes: [float32, float32]
-       shapes: [{inputs: [[1, 1024], [1, 1024]], outputs: [[1, 1024]]}]
-       tags: ["smoke"]
-   ```
-3) **Run optest** from the plan directory:
-   ```bash
-   optest run --plan ./plan.yaml --backend cuda --chip local --tags smoke
-   ```
-4) **Read results**:
-   - Terminal: aligned colored statuses, details/metrics; summary at end.
-   - JSON: `--report json --report-path report.json` produces a schema-validated report.
-5) **Iterate**: update your binary or plan (add cases/tags, custom generator/assertion) and rerun.
-
-Everything you need is in this README; no external examples required.
+- **Case selection for CI**: tag and filter.
+  ```bash
+  # run only smoke tests
+  optest run --plan ./plan.yaml --backend cuda --chip local --tags smoke
+  # skip slow tests
+  optest run --plan ./plan.yaml --backend cuda --chip local --skip-tags slow
+  # enforce priority ceiling
+  optest run --plan ./plan.yaml --backend cuda --chip local --priority-max 5
+  ```
