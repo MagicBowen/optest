@@ -39,54 +39,35 @@ graph LR
 - `TestCase` binds descriptors to concrete dtype tuples, shapes, backend targets, user attributes, tolerances, and optional overrides.
 
 ### 2.2 Generators & Reference Hooks
-- Generators must expose a `.generate(case, rng)` method returning `(inputs, expected_outputs|None)`. Built-in generators support `constants` (`value`, `scale`, `shift`).
-- Reference implementations live in built-in operator classes (e.g., `optest.operators.builtin_operators.ElementwiseAdd.run`).
-- Custom generators or assertions are provided via plan entries pointing to `source`+`name` functions (no registry needed).
+- Built-in generators live in the plan runner (`builtin.random`, `builtin.uniform`, `builtin.ones`) and honor `constants` (`value`, `scale`, `shift`) plus per-input overrides.
+- Custom generators are plain functions referenced via `generator.source` + `generator.name`; the runner invokes them with paths/shapes/dtypes/params and an already-seeded `numpy.random.Generator`.
+- Reference implementations live in built-in operator classes (e.g., `optest.operators.builtin_operators.ElementwiseAdd.run`) or custom assertions supplied via plan entries.
 
 ### 2.3 Backend Abstraction
-- Base class `BackendDriver` defines `kind`, `chips`, and `.run(case, inputs)`.
-- `BackendManager` registers drivers and selects the best match based on plan (`--backend`, `--chip`).
-- Command backends write inputs, execute a user-provided command, and load outputs; failures surface with stderr/stdout context.
+- Backends are YAML plan entries (`backends:`) that describe command templates plus env/timeout/retry hooks; allowed `type` values are `cann` and `cuda`.
+- Runner resolves tokens (paths, dtypes, shapes, chip/backend) into the command/prepare/cleanup argv, writes inputs, executes the commands, and loads outputs for comparison.
+- Selection happens via plan and CLI filters (`--backend`, `--chip`); there is no Python backend registry anymore.
 
 ### 2.4 Reporting Pipeline
 - Runner prints aligned, colored terminal output (toggle with `--no-color`) and validates JSON reports against an inline schema before writing.
 
-## 3. Extending optest with Custom GPU/NPU Backends
+## 3. Backend command templates
 
-1. **Implement a backend driver**
-   ```python
-   from optest.backends import BackendDriver, backend_manager
+- Define backend commands directly in the plan (`backends:`); no Python subclasses or registries are needed.
+- A backend entry can call any runner script or binary (local or remote) via `command`, with optional `prepare`/`cleanup`, `env`, `timeout`, and `retries`. Chip- or backend-specific behavior should live in that script, using tokens to parameterize calls.
+- Example:
+  ```yaml
+  backends:
+    - type: cuda
+      chip: local
+      workdir: .
+      command: ["python", "run.py", "--input0", "{input0}", "--input1", "{input1}", "--output0", "{output0}", "--dtype", "{dtype}", "--shape", "{shape}"]
+      prepare: [["./setup.sh"]]
+      cleanup: [["./teardown.sh"]]
+  ```
+- Remote runners (e.g., `ssh host run_op.sh ...`) work as long as they read the generated input files and write the expected outputs where optest will load them.
 
-   class MyCudaBackend(BackendDriver):
-       kind = "gpu"
-       name = "cuda-runtime"
-       chips = ("a100", "h100")
-
-       def run(self, case, inputs):
-           # 1. Convert numpy inputs to device tensors
-           # 2. Launch your CUDA kernel identified by case.descriptor.name
-           # 3. Copy outputs back to numpy arrays and return a tuple/list
-           return (run_my_kernel(case, inputs),)
-
-   backend_manager.register(MyCudaBackend())
-   ```
-
-2. **Expose driver to the CLI**
-   - Create a Python module (e.g., `my_company.optest_plugins.backends`) that registers the driver at import time.
-   - Set `OPTEST_PLUGINS=my_company.optest_plugins.backends` before invoking `optest`, or import the module in your own CLI wrapper before calling `bootstrap()`.
-
-3. **Handle chip-specific behavior**
-   - Declare `chips = ("chipA", "chipB")` and branch inside `.run()` based on `case.backend.chip`. Return helpful errors if unsupported chips are requested.
-
-4. **Tie into operator metadata**
-   - If your backend only supports specific dtypes/shapes, extend or override operator descriptors by loading plugins before running tests.
-
-### Tips
-- Use case attributes (e.g., strides, paddings) to configure kernel launches.
-- For remote hardware, your backend can call RPCs instead of local launches as long as `.run()` returns NumPy arrays.
-- Implement additional drivers (e.g., `MyNpuBackend(kind="npu")`) to target NPUs; CLI selection happens via `--backend npu --chip ascend310b`.
-
-### 3.1 Command Backends (CUDA / CANN)
+### 3.1 Command tokens
 - optest shells out to your binary/script using templated commands; it writes inputs to disk, runs the command, and loads outputs for comparison.
 - Plan fields: `workdir`, `env`, `prepare`/`cleanup`, `timeout`, `retries`, and `command` with tokens `{chip}`, `{backend}`, `{case}`, `{dtypes}`, `{shape}`/`{shapes}`, `{inputN}`/`{inputs}`, `{outputN}`/`{outputs}`, `{workdir}`.
 - optest ensures parent directories exist and surfaces errors with context (missing files, command failures with stderr/stdout).
@@ -107,7 +88,7 @@ pip install -e .
 
 ### 4.3 Installing Released Packages
 - For end users: `pip install optest` (or your published name/version).
-- They’ll receive the `optest` console script plus Python API for embedding (e.g., `from optest.core.runner import TestRunner`).
+- They’ll receive the `optest` console script; programmatic use can import `optest.plan.runner.run_plan` directly if needed.
 
 ### 4.4 Delivering with Custom Plugins
 - Package plugins in a separate distribution (e.g., `company-optest-plugins`) that depends on `optest`.
@@ -115,7 +96,7 @@ pip install -e .
 
 ## 5. Usage Workflow Overview
 1. Install the package (editable or from wheel).
-2. Register any custom operators/backends via plugin modules.
+2. Provide any custom generators/assertions (via plan `source` files or optional plugins).
 3. Author YAML plans in `cases:` format or pass CLI overrides.
 4. Run `optest run --plan my_plan.yaml --backend gpu --chip a100 --report json`.
 5. Inspect terminal summaries and, if enabled, JSON reports under the provided path.

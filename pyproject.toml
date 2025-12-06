@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "optest"
-version = "0.2.2"
 description = "CLI framework for validating AI operators across GPU/NPU targets"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -12,7 +11,8 @@ license = {text = "Apache-2.0"}
 authors = [
   {name = "optest", email = "wangbo@singintelligence.com"},
 ]
-keywords = ["ai", "testing", "operators", "cuda", "npu"]
+dynamic = ["version"]
+keywords = ["testing", "operators", "cuda", "cann"]
 dependencies = [
   "click>=8.1",
   "numpy>=1.24",
@@ -26,3 +26,6 @@ dependencies = [
 
 [project.scripts]
 "optest" = "optest.cli.main:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "optest.version.__version__"}

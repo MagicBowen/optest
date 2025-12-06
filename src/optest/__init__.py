@@ -4,38 +4,23 @@ from __future__ import annotations
 import importlib
 import os
 
-from .backends import CannBackendDriver, backend_manager, register_stub_backends
+from .version import __version__
 
 __all__ = [
     "__version__",
     "bootstrap",
 ]
 
-__version__ = "0.2.2"
-
 _BOOTSTRAPPED = False
 
 
 def bootstrap() -> None:
-    """Register built-in operators and stub backends (idempotent)."""
+    """Initialize optest (idempotent)."""
 
     global _BOOTSTRAPPED
     if _BOOTSTRAPPED:
         return
     _load_plugins()
-    register_stub_backends()
-    backend_manager.register(
-        CannBackendDriver(
-            chips=(
-                "ascend",
-                "ascend910",
-                "ascend910a",
-                "ascend910b",
-                "ascend310",
-                "ascend310b",
-            )
-        )
-    )
     _BOOTSTRAPPED = True
 
 
