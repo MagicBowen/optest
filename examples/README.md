@@ -3,8 +3,8 @@
 This folder contains runnable examples using the new plan format.
 
 - `vector_add/` – minimal vector add using the new plan and built-in generator/assertion.
-- `operator_cpp/` – CANN-style add operator build driven by the plan.
-- `custom_op_with_plugins/` – custom generator + assertion without plugins.
+- `op_cpp/` – C++ operator build driven by the plan.
+- `op_plugin/` – custom generator + assertion without plugins.
 - `matmul_cpp/` – C++ matmul runner (float/int) showing how to wire a native binary to optest, with demo failure cases tagged `xfail-demo`.
 - `ascend_add/` – actual ascend c operator sample build and test in docker env with CANN Toolkit.
 

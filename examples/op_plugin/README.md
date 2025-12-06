@@ -9,7 +9,7 @@ This example shows how to extend optest with a user-defined generator and assert
 
 ## Run
 ```bash
-cd examples/custom_op_with_plugins
+cd examples/op_plugin
 optest run --plan ./plan.yaml --backend cuda --chip local --tags custom
 ```
 
